@@ -92,7 +92,7 @@ def uhp_handler():
             elif cmd == "bestmove":
                 # bestmove time <TimeInSeconds>
 
-                best_move = RandomMoveEngine().get_best_move(board.board)
+                best_move = RandomMoveEngine().get_best_move(board)
                 print(best_move)
                 sys.stdout.flush()
 
