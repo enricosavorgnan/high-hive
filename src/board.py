@@ -246,7 +246,7 @@ class HiveBoard:
     
     
     
-    def _get_top_piece(self, piece_coords : tuple[int, int])->str | None:
+    def _get_top_piece(self, piece_coords : tuple[int, int])->str:
         """
         Internal method to get the top piece at a given coordinate, if multiple pieces are stacked.
 
@@ -260,10 +260,9 @@ class HiveBoard:
         str | None
             The name of the top piece at the given coordinates, or None if there are no pieces.
         """
-        if piece_coords in self.board and self.board[piece_coords]:
-            return self.board[piece_coords][-1]  # Return the last piece in the list (top of the stack)
-        return None
-    
+        assert piece_coords in self.board, f'Piece coordinates must be in the board'
+
+        return self.board[piece_coords][-1]  # Return the last piece in the list (top of the stack)    
 
 
     def _get_stack_height(self, piece_coords : tuple[int, int])->int:
@@ -301,3 +300,27 @@ class HiveBoard:
             True if the coordinate is occupied by at least one piece, False otherwise.
         """
         return piece_coords in self.board and len(self.board[piece_coords]) > 0
+    
+
+
+    def _count_neighbors(self, piece_coords : tuple[int, int], exclude_self : tuple[int, int] | None = None)->int:
+        """
+        Internal method for counting neighbours of a given piece
+
+        Parameters
+        ----------
+        piece_coords : tuple[int, int]
+            The axial coordinates (q, r) of the piece
+        exclude_self : tuple[int, int] | None, optional
+            The axial coordinates (q, r) of a piece to exclude from the count, by default None
+
+        Returns
+        -------
+        int
+            Count of neighbours
+        """
+        count = 0
+        for neigh_coord in self._get_neighbours(piece_coords=piece_coords):
+            if self._is_place_occupied(neigh_coord) and neigh_coord != piece_coords:
+                count += 1
+        return count
