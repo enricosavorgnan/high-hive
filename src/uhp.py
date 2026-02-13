@@ -6,7 +6,9 @@ from board import HiveBoard
 from engine import RandomMoveEngine
 
 def uhp_handler():
-    board = HiveBoard(move_engine=RandomMoveEngine)
+    move_engine = RandomMoveEngine()
+    board = HiveBoard(move_engine=move_engine)
+
 
     while True:
         try:
@@ -81,7 +83,7 @@ def uhp_handler():
 
 
             elif cmd == "validmoves":
-                valid_moves = RandomMoveEngine().get_valid_moves(board.board)
+                valid_moves = move_engine.get_valid_moves(board)
                 if valid_moves:
                     print(" ".join(valid_moves))
                 else:
@@ -92,14 +94,14 @@ def uhp_handler():
             elif cmd == "bestmove":
                 # bestmove time <TimeInSeconds>
 
-                best_move = RandomMoveEngine().get_best_move(board)
+                best_move = move_engine.get_best_move(board)
                 print(best_move)
                 sys.stdout.flush()
 
 
             elif cmd == "undo":
                 # TODO: check for how Mzinga deals with this
-                if board.undo_last_move():
+                if move_engine.undo_last_move(board=board):
                     print("ok")
                 sys.stdout.flush()
 

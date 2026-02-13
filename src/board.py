@@ -14,9 +14,12 @@ DIRECTIONS = [
 
 # UHP String to Direction Map
 UHP_DIR_MAP = {
-    '-': (-1, 0),   # West
-    '/': (-1, 1),   # North-West
-    '\\': (0, 1)    # North-East
+    (1, 0):  ("-", "Right"), # East
+    (-1, 0): ("-", "Left"),  # West
+    (0, -1): ("\\", "Left"), # North-West
+    (0, 1):  ("\\", "Right"),# South-East
+    (1, -1): ("/", "Left"),  # North-East
+    (-1, 1): ("/", "Right")  # South-West
 }
 
 # all the pieces in the game, for both players, with their respective counts
