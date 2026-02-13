@@ -1,2 +1,2 @@
-# high-hive
-A protocol for play Hive games using Mzinga protocol.
+# High-Hive
+A protocol for play Hive games using Universal Hive Protocol (UHP) *MZinga* protocol.
