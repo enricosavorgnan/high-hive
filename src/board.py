@@ -5,21 +5,29 @@ import random
 import time
 
 import collections
-from engine import *
 
 # clock-wise directions starting from East up to North-East
 DIRECTIONS = [        
     (1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)
 ]
 
-# UHP String to Direction Map
-UHP_DIR_MAP = {
-    (1, 0):  ("-", "Right"), # East
-    (-1, 0): ("-", "Left"),  # West
-    (0, -1): ("\\", "Left"), # North-West
-    (0, 1):  ("\\", "Right"),# South-East
-    (1, -1): ("/", "Left"),  # North-East
-    (-1, 1): ("/", "Right")  # South-West
+# UHP Direction to Symbol,Side
+UHP_DIR_SYM = {
+    (1, 0):  ("-", "r"),        # East
+    (-1, 0): ("-", "l"),        # West
+    (0, -1): ("\\", "l"),       # North-West
+    (0, 1):  ("\\", "r"),       # South-East
+    (1, -1): ("/", "l"),        # South-West
+    (-1, 1): ("/", "r")         # North-East
+}
+# UHP Symbol,Side to Direction 
+UHP_SYM_DIR : dict[tuple[str, str], tuple[int, int]] = {
+    ("-", "r") : (1, 0),
+    ("-", "l") : (-1, 0),
+    ("\\", "r") : (0, 1),
+    ("\\", "l") : (0, -1),
+    ("/", "r") : (-1, 1),
+    ("/", "l") : (1, -1)
 }
 
 # all the pieces in the game, for both players, with their respective counts
@@ -35,8 +43,7 @@ class HiveBoard:
     Class for easy manipulation of a Board of Hive game.
     """
 
-    def __init__(self, move_engine):
-        self.engine : MoveEngine = move_engine
+    def __init__(self):
         self._reset()
 
 
@@ -49,14 +56,14 @@ class HiveBoard:
         self.black_hand : list = ['bQ', 'bS1', 'bS2', 'bB1', 'bB2', 'bG1', 'bG2', 'bG3', 'bA1', 'bA2', 'bA3', 'bM', 'bL', 'bP']
         self.history : list[dict] = []
 
-        self.turn : int = 0
+        self.turn : int = 1
         self.current_player : str = 'w'
 
 
 
-    def parse_gamestring(self, gamestring : str)->int:
+    def parse_gamestring(self, gamestring : str)->str:
         """
-        Parses the full 'Base;...' game string from Mzinga and updates the board state accordingly.
+        Parses the full game string from Mzinga and updates the board state accordingly.
 
         Parameters
         ----------
@@ -71,52 +78,106 @@ class HiveBoard:
         """
 
         self._reset()
-        chunks = gamestring.split(';')
-        assert chunks[0] == 'Base', "Expected gamestring to start with 'Base'"
-
-        for chunk in chunks:
-            if chunk.startswith("Turn"):
-                self.current_player = chunk.split("=")[1]
-            elif chunk.startswith("Move"):
-                self.turn = int(chunk.split("=")[1])
-            elif chunk.startswith("Pieces"):
-                # Expected format is: Pieces=colorPiece[coor_q, coor_r],...
-                pieces = chunk.split("=")[1]
-                if not pieces:
-                    continue
-
-                for piece in pieces.split(","):
-                    # now format is: colorPiece[coor_q, coor_r]
-
-                    piece_name, piece_coords = piece.split("[")
-                    piece_coords = piece_coords.strip("]")
-
-                    # Now it depends on the Mzinga axial coordinates structure.
-                    # Here is supposed the one (q, r) described in notes.md
-                    # TODO: check Mzinga coords structure.
-                    try:
-                        q, r = map(int, piece_coords.split(","))
-                        if not self.board.get((q, r)):
-                            self._place_piece(piece_name, (q, r))
-                        else:
-                            self._move_piece(piece_name, (q, r))
-                    except ValueError as e:
-                        with open("engine.log", "a") as f:
-                            f.write(f'ValueError encountered during parsing a string: {e}\n')
-                        return 1
-
-                    # remove piece from hand
-                    color = 'w' if piece_name.startswith('w') else 'b'
-                    if color == 'w':
-                        if piece_name in self.white_hand:
-                            self.white_hand.remove(piece_name)
-                    else:
-                        if piece_name in self.black_hand:
-                            self.black_hand.remove(piece_name)
-                    
-            
-        return 0
         
+        # Empty string
+        if gamestring == "":
+            self.current_player = 'w'
+            return "Base+MLP;NotStarted;White[1]"
+        
+        chunks = gamestring.split(';')
+        
+        # GameTypeString: 
+        if len(chunks) == 1:
+            self.current_player = 'w'
+            return "Base+MLP;NotStarted;White[1]"
+        
+        chunk_game_type, chunk_game_state, chunk_player_turn, chunk_moves = chunks[0], chunks[1], chunks[2], chunks[3:]
+        assert chunk_game_type == 'Base+MLP', "Currently only 'Base+MLP' is supported"
+
+        chunks_player_turn = chunk_player_turn.split("[")
+        self.current_player = chunks_player_turn[0]
+        self.turn = int(float(chunks_player_turn[1][:-1]))
+
+        for move in chunk_moves:
+            self.apply_move(move_string=move)
+                    
+        return "Base+MLP;InProgress;{}[{}];{}".format(chunks_player_turn[0], chunks_player_turn[1][:-1], ";".join(chunk_moves))
+
+
+    def apply_move(self, move_string : str)->int:
+        """
+        Apply a move onto the Hive board. 
+        Move should follow the UHP protocol:
+            colorPiece symbolColorPiece
+        or
+            colorPiece colorPieceSymbol
+
+        Parameters
+        ----------
+        move_string : str
+            A string in the UHP protocol
+
+        Returns
+        -------
+        int
+            0, otherwise 1 if error
+        """            
+        chunks = move_string.split()
+
+        # Pass move
+        if move_string == "pass":
+            self.turn += 1
+            self.current_player = 'b' if self.current_player == 'w' else 'w'
+            self.history.append({
+                "move_type": "pass",
+                "piece": None,
+                "coords": None,
+                "previous_coords": None
+            })
+            return 0
+        
+        piece = chunks[0] 
+        hand = self.white_hand if piece.startswith('w') else self.black_hand 
+        assert piece in PIECES, f"Invalid piece name: {piece}"
+
+
+        # first move 
+        if len(chunks) == 1:
+            self._place_piece(piece_name=piece, piece_coord=(0, 0))
+            return 0
+
+        # symbol is any of  "-" , "\" or "/" in the second chunk
+        symbol = ""
+        for letter in chunks[1]:
+            if letter in ["-", "\\", "/"]:
+                symbol = letter
+                break
+        if chunks[1].startswith(symbol):
+            ref_piece = chunks[1][1:]
+            side = "l"
+        else:
+            ref_piece = chunks[1][:-1]
+            side = "r"
+
+        # remove piece from hand
+        if piece in hand:
+            hand.remove(piece)
+        # remove piece from board
+        else:
+            old_q, old_r = self.pieces[piece]
+            self.board[(old_q, old_r)].remove(piece)
+            if len(self.board[(old_q, old_r)]) == 0:
+                del (self.board[(old_q, old_r)])
+
+        # place piece on the board, at the new coordinates
+        ref_q, ref_r = self.pieces[ref_piece]
+        dq, dr = UHP_SYM_DIR[(symbol, side)]
+        piece_q, piece_r = ref_q + dq, ref_r + dr
+
+        self._place_piece(piece_name=piece, piece_coord=(piece_q, piece_r))
+
+        return 0
+
 
 
     # ------ UTILS ------ 
@@ -132,7 +193,12 @@ class HiveBoard:
             Coordinates of the piece to insert
         """
         self.pieces[piece_name] = piece_coord
-        self.board[piece_coord].append(piece_name)
+        self.board[piece_coord].append(piece_name) if piece_coord in self.board else self.board.__setitem__(piece_coord, [piece_name])
+        # remove piece from hand
+        if piece_name.startswith('w') and piece_name in self.white_hand:
+            self.white_hand.remove(piece_name)
+        elif piece_name.startswith('b') and piece_name in self.black_hand:
+            self.black_hand.remove(piece_name)
         # expand history
         self.history.append({
             "move_type": "place",
@@ -140,6 +206,9 @@ class HiveBoard:
             "coords": piece_coord,
             "previous_coords": None
         })
+        # update turn and player
+        self.turn += 1
+        self.current_player = 'b' if self.current_player == 'w' else 'w'
         return
 
 
@@ -173,6 +242,9 @@ class HiveBoard:
             "coords": new_coords,
             "previous_coords": old_coords
         })
+        # update turn and player
+        self.turn += 1
+        self.current_player = 'b' if self.current_player == 'w' else 'w'
         return
 
 
@@ -263,6 +335,7 @@ class HiveBoard:
         assert piece_coords in self.board, f'Piece coordinates must be in the board'
 
         return self.board[piece_coords][-1]  # Return the last piece in the list (top of the stack)    
+
 
 
     def _get_stack_height(self, piece_coords : tuple[int, int])->int:
