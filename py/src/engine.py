@@ -124,7 +124,7 @@ def uhp_handler():
             # Extract filename
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             
-            with open('uhp_error.log', 'a') as f:
+            with open('log/uhp.log', 'a') as f:
                 f.write(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\t\t[File: {fname} | Line: {line_number}]\t\tError: {e} \t\n')
         
         finally:
