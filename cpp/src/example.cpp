@@ -1,1 +1,0 @@
-// You can safely ignore this file, and delete it once the folder is populated

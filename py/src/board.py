@@ -17,8 +17,8 @@ UHP_DIR_SYM = {
     (-1, 0): ("-", "l"),        # West
     (0, -1): ("\\", "l"),       # North-West
     (0, 1):  ("\\", "r"),       # South-East
-    (1, -1): ("/", "l"),        # South-West
-    (-1, 1): ("/", "r")         # North-East
+    (-1, 1): ("/", "r"),        # South-West
+    (1, -1): ("/", "l")         # North-East
 }
 # UHP Symbol,Side to Direction 
 UHP_SYM_DIR : dict[tuple[str, str], tuple[int, int]] = {
