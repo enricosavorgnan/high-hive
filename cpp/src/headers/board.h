@@ -88,7 +88,7 @@ namespace Hive {
             // Coordinates
             std::vector<Coord> _occupied_coords;
 
-            // Tile Neighbours
+            // Tile Neighbors
             static constexpr std::array <int, 6> NEIGHBORS = {
                 1,                      // (1, 0)
                 BOARD_DIM,              // (0, 1)
@@ -121,7 +121,7 @@ namespace Hive {
             // ----- Queries -----
             
             // Get top piece
-            const Piece* top(Coord coord) const{
+            const Piece* top(const Coord coord) const{
                 const Cell& idx = _grid[AxToIndex(coord)];
                 if (idx.empty()) return nullptr;
                 return &idx.top();

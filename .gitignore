@@ -3,3 +3,5 @@
 build-cpp/
 
 .vscode/
+
+cmake-build-debug/
