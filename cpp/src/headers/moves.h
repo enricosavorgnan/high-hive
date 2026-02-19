@@ -24,15 +24,15 @@ namespace Hive {
 
     namespace Moves {
         static bool touchesHive(const Board& board, Coord target, Coord exclude);
-        
-        void getAntMoves(const Board& board, Coord prop, std::vector<Move>& out);
-        void getBeetleMoves(const Board& board, Coord prop, std::vector<Move>& out);
-        void getGrasshopperMoves(const Board& board, Coord prop, std::vector<Move>& out);
-        void getLadybugMoves(const Board& board, Coord prop, std::vector<Move>& out);
-        void getMosquitoMoves(const Board& board, Coord prop, std::vector<Move>& out);
-        void getPillbugMoves(const Board& board, Coord prop, std::vector<Move>& out);
-        void getQueenMoves(const Board& board, Coord prop, std::vector<Move>& out);
-        void getSpiderMoves(const Board& board, Coord prop, std::vector<Move>& out);   
+
+        void getAntMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        void getBeetleMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        void getGrasshopperMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        void getLadybugMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        void getMosquitoMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        void getPillbugMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        void getQueenMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        void getSpiderMoves(const Board& board, Coord prop, std::vector<Move>& targets);   
     }
     
 }

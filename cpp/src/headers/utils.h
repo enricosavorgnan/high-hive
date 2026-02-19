@@ -14,6 +14,6 @@ namespace Hive {
 
     inline std::string CoordToString(const Coord& pieceCoord, const Coord& neighCoord, const std::string& neighName);
 
-    inline std::string MoveToString(const Move& move, const Board& board)
+    inline std::string MoveToString(const Move& move, const Board& board);
     
 }

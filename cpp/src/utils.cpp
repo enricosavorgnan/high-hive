@@ -2,7 +2,7 @@
 
 namespace Hive
 {
-    inline std::string PieceToString(const Piece& piece)
+    std::string PieceToString(const Piece& piece)
     {
         std::string str = (piece.color == Color::White) ? "w" : "b";
         
@@ -21,7 +21,7 @@ namespace Hive
         return str;
     }
 
-    inline Piece StringToPiece(const std::string_view str) {
+    Piece StringToPiece(const std::string_view str) {
         // Safety Check
         if (str.empty() || (str[0] != 'w' && str[0] != 'b')) {
             throw std::invalid_argument("Invalid piece string format: " + std::string(str));
@@ -45,7 +45,7 @@ namespace Hive
         return {color, bug, id};
     }
 
-    inline std::string CoordToString(const Hive::Coord& pieceCoord, const Hive::Coord& neighCoord, const std::string& neighName) {
+    std::string CoordToString(const Hive::Coord& pieceCoord, const Hive::Coord& neighCoord, const std::string& neighName) {
         Hive::Coord diff = pieceCoord - neighCoord;
 
         if (diff == Hive::Coord{1, 0}) return neighName + "-";
@@ -58,7 +58,7 @@ namespace Hive
         return ""; // No valid direction found
     } 
 
-    inline std::string MoveToString(const Hive::Move& move, const Hive::Board& board) {
+    std::string MoveToString(const Hive::Move& move, const Hive::Board& board) {
         // ---- Pass -----
         if (move.type == Hive::Move::Pass) return "pass";
 
