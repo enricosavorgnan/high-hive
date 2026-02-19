@@ -47,5 +47,30 @@ namespace Hive{
                 q.push_back(next);
             }
         }
+
+        for (int i = 0; i < neighCount; ++i) {
+            if (!visited.test(neighbors[i])) return true;
+        }
+        return false;
+    }
+
+    std::vector<Move> generatePlacements(const Board& board, Color player, const std::vector<Piece>& hand) {
+        return;
+        // TODO: write function
+    }
+
+    std::vector<Move> generateMovements(const Board& board, Color player) {
+        return;
+        // TODO: write function
+    }
+
+    std::vector<Move> generateMoves(const Board& board, Color turnPlayer, const std::vector<Piece>& hand) {
+        std::vector<Move> placements = generatePlacements(board, turnPlayer, hand);
+
+        std::vector<Move> movements = generateMovements(board, turnPlayer);
+
+        placements.insert(placements.end(), movements.begin(), movements.end());
+
+        return placements;
     }
 }
