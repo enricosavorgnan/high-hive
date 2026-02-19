@@ -38,7 +38,7 @@ struct CoordHash {
 };
 
 // hexagonal grid
-static constexpr std::array<Coord, 6> HEXGRID_DIR = {
+static constexpr std::array<Coord, 6> DIRECTIONS = {
     Coord{1, 0},    // East
     Coord{0, 1},    // South-East
     Coord{-1, 1},   // South-West
@@ -50,12 +50,12 @@ static constexpr std::array<Coord, 6> HEXGRID_DIR = {
 // returns 6 neighbors of a given coordinate
 inline std::array<Coord, 6> coordNeighbors(const Coord& coord) {
     return { 
-        coord + HEXGRID_DIR[0], 
-        coord + HEXGRID_DIR[1], 
-        coord + HEXGRID_DIR[2], 
-        coord + HEXGRID_DIR[3], 
-        coord + HEXGRID_DIR[4], 
-        coord + HEXGRID_DIR[5] 
+        coord + DIRECTIONS[0], 
+        coord + DIRECTIONS[1], 
+        coord + DIRECTIONS[2], 
+        coord + DIRECTIONS[3], 
+        coord + DIRECTIONS[4], 
+        coord + DIRECTIONS[5] 
     };
 }
 
@@ -63,7 +63,7 @@ inline std::array<Coord, 6> coordNeighbors(const Coord& coord) {
 inline int neighborDirectionIndex(const Coord& a, const Coord& b) {
     Coord c = b-a;
     for (int i = 0; i < 6; i++) {
-        if (c == HEXGRID_DIR[i]) return i;
+        if (c == DIRECTIONS[i]) return i;
     }
     return -1;
 }
@@ -72,8 +72,8 @@ inline std::pair<Coord, Coord> neighborAdjacent(const Coord& a, const Coord& b) 
     int direction = neighborDirectionIndex(a, b);
     assert(direction != -1 && "Coordinates A and B must be adjacent");
 
-    Coord left = a + HEXGRID_DIR[(direction+5)%6];
-    Coord right = b + HEXGRID_DIR[(direction+1)%6];
+    Coord left = a + DIRECTIONS[(direction+5)%6];
+    Coord right = b + DIRECTIONS[(direction+1)%6];
     return {left, right};
 }
 

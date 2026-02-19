@@ -1,6 +1,5 @@
 #pragma once
 
-#include <unordered_map>
 #include <vector>
 #include <string>
 #include <optional>
@@ -26,7 +25,7 @@ namespace Hive {
             
             // Utilities
             void push(const Piece& val) {
-                assert(_count < N) && "Stack overflow: Piece stack too high";
+                assert(_count < N && "Stack overflow: Piece stack too high");
                 _data[_count++] = val;
             }
 
@@ -64,10 +63,10 @@ namespace Hive {
             auto end() {
                 return _data.begin() + _count;
             }
-            auto begin const {
+            auto begin() const {
                 return _data.begin();
             }
-            auto end const {
+            auto end() const {
                 return _data.begin() + _count;
             }
     };
@@ -78,7 +77,7 @@ namespace Hive {
 
     class Board{
         friend class RuleEngine;
-        
+
         public:
             using Cell = CellStack<Piece, MAX_STACK>;
 
@@ -183,7 +182,7 @@ namespace Hive {
                 for (int i = 0; i < 6; ++i) {
                     int neighborIdx = centerIdx + NEIGHBORS[i];
                     if (!_grid[neighborIdx].empty()) {
-                        out.push_back(coord + HEXGRID_DIR[i]);
+                        out.push_back(coord + DIRECTIONS[i]);
                     }
                 }
             }
@@ -219,6 +218,6 @@ namespace Hive {
                 return blockedGates < 2;
             }
 
-    }
+    };
 
 }
