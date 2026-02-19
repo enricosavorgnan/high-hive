@@ -1,4 +1,4 @@
-#include "rules.h"
+#include "headers/rules.h"
 #include <bitset>
 #include <array>
 
@@ -26,7 +26,7 @@ namespace Hive{
         std::array<int, 6> neighbors;
         int neighCount = 0;
         for (int i = 0; i < 6; ++i) {
-            if (!board._grid[idx + i].empty()) neighbors[neighCount++] == idx+i;
+            if (!board._grid[idx + i].empty()) neighbors[neighCount++] = idx+i;
         }
         if (neighCount < 2) return false;
 

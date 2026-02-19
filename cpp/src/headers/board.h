@@ -81,10 +81,10 @@ namespace Hive {
         public:
             using Cell = CellStack<Piece, MAX_STACK>;
 
+
         private:
             // Grid
             std::array<Cell, BOARD_AREA> _grid;
-
             // Coordinates
             std::vector<Coord> _occupied_coords;
 
@@ -106,7 +106,6 @@ namespace Hive {
 
 
             // ----- Coordinates Math ----- 
-
             [[nodiscard]] static inline int AxToIndex(Coord coord) {
                 assert(isValid(coord) && "Axial Coordinate is not valid");
                 return (coord.r + BOARD_OFFSET) * BOARD_DIM  + (coord.q + BOARD_OFFSET);
@@ -115,7 +114,7 @@ namespace Hive {
             [[nodiscard]] static inline bool isValid(Coord coord) {
                 int q = coord.q + BOARD_OFFSET;
                 int r = coord.r + BOARD_OFFSET;
-                return q >= 0 && q < BOARD_DIM && r < BOARD_DIM;
+                return q >= 0 && q < BOARD_DIM && r >= 0 && r < BOARD_DIM;
             }
 
 
@@ -146,78 +145,13 @@ namespace Hive {
 
             // ----- Operations -----
 
-            void place (Coord coord, Piece piece) {
-                int idx = AxToIndex(coord);
+            void place (Coord coord, Piece piece);
 
-                if (_grid[idx].empty()) {
-                    _occupied_coords.push_back(coord);
-                }
-                _grid[idx].push(piece);
-            }
+            Piece remove(Coord coord);
 
-            Piece remove(Coord coord) {
-                int idx = AxToIndex(coord);
-                Piece piece = _grid[idx].pop();
+            void move(Coord from, Coord to);
 
-                if (_grid[idx].empty()) {
-                    for (size_t i = 0; i < _occupied_coords.size(); ++i) {
-                        if (_occupied_coords[i] == coord) {
-                            _occupied_coords[i] = _occupied_coords.back();
-                            _occupied_coords.pop_back();
-                            break;
-                        }
-                    }
-                }
-            }
-
-            void move(Coord from, Coord to) {
-                Piece piece = remove(from);
-                place(to, piece);
-            }
-
-            void getOccupiedNeighbors(Coord coord, std::vector<Coord>& out) const {
-                out.clear();
-                int centerIdx = AxToIndex(coord);
-
-                for (int i = 0; i < 6; ++i) {
-                    int neighborIdx = centerIdx + NEIGHBORS[i];
-                    if (!_grid[neighborIdx].empty()) {
-                        out.push_back(coord + DIRECTIONS[i]);
-                    }
-                }
-            }
-
-            // Hive Move Rule
-            // Move only if at least oneof the two gates is not blocked by a piece
-            bool canSlide(Coord from, Coord to) const {
-                int fromIdx = AxToIndex(from);
-                int toIdx = AxToIndex(to);
-                int diff = toIdx - fromIdx;
-
-                int blockedGates = 0;
-
-                for (int i = 0; i < 6; ++i) {
-                    int neighborIdx = fromIdx + NEIGHBORS[i];
-
-                    bool isCommon = false;
-                    int dist = neighborIdx - toIdx;
-                    for (int d : NEIGHBORS) {
-                        if (dist == -d) {
-                            isCommon = true;
-                            break;
-                        }
-                    }
-
-                    if (isCommon) {
-                        if (!_grid[neighborIdx].empty()) {
-                            blockedGates++;
-                        }
-                    }
-                }
-
-                return blockedGates < 2;
-            }
-
+            void getOccupiedNeighbors(Coord coord, std::vector<Coord>& out);
     };
 
 }

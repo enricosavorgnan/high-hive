@@ -1,13 +1,9 @@
-#pragma once
+#include "headers/utils.h"
 
-#include <string>
-#include <sstream>
-#include "board.h"
-#include "moves.h"
-
-namespace Hive {
-
-    inline std::string PieceToString(const Piece& piece) {
+namespace Hive
+{
+    inline std::string PieceToString(const Piece& piece)
+    {
         std::string str = (piece.color == Color::White) ? "w" : "b";
         
         if (piece.bug == Bug::Ant) str += "A";
@@ -49,41 +45,41 @@ namespace Hive {
         return {color, bug, id};
     }
 
-    inline std::string CoordToString(const Coord& pieceCoord, const Coord& neighCoord, const std::string& neighName) {
-        Coord diff = pieceCoord - neighCoord;
+    inline std::string CoordToString(const Hive::Coord& pieceCoord, const Hive::Coord& neighCoord, const std::string& neighName) {
+        Hive::Coord diff = pieceCoord - neighCoord;
 
-        if (diff == Coord{1, 0}) return neighName + "-";
-        if (diff == Coord{-1, 0}) return "-" + neighName;
-        if (diff == Coord{0, -1}) return "\\" + neighName;
-        if (diff == Coord{0, 1}) return neighName + "\\";
-        if (diff == Coord{1, -1}) return "/" + neighName;
-        if (diff == Coord{-1, 1}) return neighName + "/";
+        if (diff == Hive::Coord{1, 0}) return neighName + "-";
+        if (diff == Hive::Coord{-1, 0}) return "-" + neighName;
+        if (diff == Hive::Coord{0, -1}) return "\\" + neighName;
+        if (diff == Hive::Coord{0, 1}) return neighName + "\\";
+        if (diff == Hive::Coord{1, -1}) return "/" + neighName;
+        if (diff == Hive::Coord{-1, 1}) return neighName + "/";
         
         return ""; // No valid direction found
-    }
+    } 
 
-    inline std::string MoveToString(const Move& move, const Board& board) {
+    inline std::string MoveToString(const Hive::Move& move, const Hive::Board& board) {
         // ---- Pass -----
-        if (move.type == Move::Pass) return "pass";
+        if (move.type == Hive::Move::Pass) return "pass";
 
         // ----- Place & Move -----
         std::string str = PieceToString(move.piece);
 
         // First Move Check 
         // No references
-        if (move.type == Move::Place && board.occupiedCoords().empty()) {
+        if (move.type == Hive::Move::Place && board.occupiedCoords().empty()) {
             return str; 
         }
 
         for (int i = 0; i < 6; ++i) {
-            Coord neigh = move.to + DIRECTIONS[i];
+            Hive::Coord neigh = move.to + Hive::DIRECTIONS[i];
 
-            if (move.type == Move::PieceMove && neigh == move.from) continue;
+            if (move.type == Hive::Move::PieceMove && neigh == move.from) continue;
 
-            const Piece* referencePiece = board.top(neigh);
+            const Hive::Piece* referencePiece = board.top(neigh);
             if (referencePiece != nullptr) {
-                std::string referenceName = PieceToString(*referencePiece);
-                std::string referenceStr = CoordToString(move.to, neigh, referenceName);
+                std::string referenceName = Hive::PieceToString(*referencePiece);
+                std::string referenceStr = Hive::CoordToString(move.to, neigh, referenceName);
                 if (!referenceStr.empty()) {
                     return str + " " + referenceStr;
                 }
@@ -94,5 +90,6 @@ namespace Hive {
         // Fallback return
         return str;
     }
-        
-}
+
+
+} // namespace Hive
