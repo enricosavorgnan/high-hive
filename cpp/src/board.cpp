@@ -15,8 +15,8 @@ namespace Hive {
     }
 
     Piece Board::remove(Coord coord) {
-        int idx = AxToIndex(coord);
-        Piece piece = _grid[idx].pop();
+        const int idx = AxToIndex(coord);
+        const Piece piece = _grid[idx].pop();
 
         if (_grid[idx].empty()) {
             for (size_t i = 0; i < _occupied_coords.size(); ++i) {
@@ -30,17 +30,17 @@ namespace Hive {
         return piece;
     }
 
-    void Board::move(Coord from, Coord to) {
-        Piece piece = Board::remove(from);
-        Board::place(to, piece);
+    void Board::move(const Coord from, const Coord to) {
+        const Piece piece = remove(from);
+        place(to, piece);
     }
 
-    void Board::getOccupiedNeighbors(Coord coord, std::vector<Coord>& out) {
+    void Board::getOccupiedNeighbors(const Coord coord, std::vector<Coord>& out) const {
         out.clear();
-        int centerIdx = AxToIndex(coord);
+        const int centerIdx = AxToIndex(coord);
 
         for (int i = 0; i < 6; ++i) {
-            int neighborIdx = centerIdx + NEIGHBORS[i];
+            const int neighborIdx = centerIdx + NEIGHBORS[i];
             if (!_grid[neighborIdx].empty()) {
                 out.push_back(coord + DIRECTIONS[i]);
             }

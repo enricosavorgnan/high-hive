@@ -23,16 +23,31 @@ namespace Hive{
     }
 
     bool RuleEngine::isBoardConnected(const Board& board, int idx) {
+        // Stack check: If the stack height is >= 2, removing the top piece leaves a piece behind:
+        // current connectivity is kept.
+        if (board._grid[idx].size() >= 2) {
+            return true;
+        }
+
+        // Occupied neighbors
         std::array<int, 6> neighbors;
         int neighCount = 0;
         for (int i = 0; i < 6; ++i) {
-            if (!board._grid[idx + i].empty()) neighbors[neighCount++] = idx+i;
+            int neighborIdx = idx + Board::NEIGHBORS[i];
+            if (!board._grid[neighborIdx].empty()) {
+                neighbors[neighCount++] = neighborIdx;
+            }
         }
-        if (neighCount < 2) return false;
+        // Leaf node check: A node with 0 or 1 neighbors is not an articulation point:
+        // current connectivity is kept
+        if (neighCount < 2) {
+            return true;
+        }
 
+        // BFS traversal to verify if all neighbors remain connected without the piece at 'idx'.
         std::bitset<BOARD_AREA> visited;
         std::vector<int> q;
-        q.reserve(32);
+        q.reserve(32); // Pieces are 28 so 32 is ok
 
         q.push_back(neighbors[0]);
         visited.set(neighbors[0]);
@@ -40,18 +55,28 @@ namespace Hive{
         size_t head = 0;
         while (head < q.size()) {
             int curr = q[head++];
-            for (int neigh : Board::NEIGHBORS) {
-                int next = curr + neigh;
-                if (next == idx || board._grid[next].empty() || visited.test(next)) continue;
+
+            for (int offset : Board::NEIGHBORS) {
+                int next = curr + offset;
+                // Exclude the piece being simulated for removal,
+                // empty cells, and already evaluated cells.
+                if (next == idx || board._grid[next].empty() || visited.test(next)) {
+                    continue;
+                }
+
                 visited.set(next);
                 q.push_back(next);
             }
         }
 
-        for (int i = 0; i < neighCount; ++i) {
-            if (!visited.test(neighbors[i])) return true;
+        // If any neighbor is absent from the visited set, it implies the graph has been partitioned into distinct components.
+        for (int i = 1; i < neighCount; ++i) {
+            if (!visited.test(neighbors[i])) {
+                return false;
+            }
         }
-        return false;
+
+        return true;
     }
 
     std::vector<Move> generatePlacements(const Board& board, Color player, const std::vector<Piece>& hand) {

@@ -9,36 +9,48 @@
 #include "coords.h"
 #include "pieces.h"
 
+// CELL and BOARD IMPLEMENTATION
+// The board is implemented as a 1D array of dimension BOARD_AREA, where each cell is a stack of pieces (CellStack).
+// The CellStack is implemented as a fixed-size array with at most MAX_STACK pieces.
+
 
 namespace Hive {
-    constexpr int BOARD_DIM = 64; // should include all the aligned pieces
-    constexpr int BOARD_OFFSET = BOARD_DIM / 2;
-    constexpr int BOARD_AREA = BOARD_DIM * BOARD_DIM;
-    constexpr int MAX_STACK = 8; // to bound height of the cells
+    // Constant values
+    constexpr int BOARD_DIM = 64; // should include all the aligned pieces. Actually 55 should work
+    constexpr int BOARD_OFFSET = BOARD_DIM / 2; // Offset for dealing with coordinates
+    constexpr int BOARD_AREA = BOARD_DIM * BOARD_DIM; // Total grid area
+    constexpr int MAX_STACK = 6; // To bound the height of the cells. Actually, heights > 4 are quite rare
 
-    // Board cell
+    // CELL
     template <typename Piece, int N>
+
+    // Each cell is implemented as a tuple[array, int],
+    // where the array has size N in its general form, MAX_STACK passed by Board class in practice
     class CellStack {
         public:
-            std::array<Piece, N> _data;     // Piece
-            uint8_t _count = 0;         // Number of elements < N
+            std::array<Piece, N> _data;     // Piece(s)
+            uint8_t _count = 0;             // Number of elements < N
             
-            // Utilities
+            // ----- Utilities -----
+            // Push a value inside the Stack
             void push(const Piece& val) {
                 assert(_count < N && "Stack overflow: Piece stack too high");
                 _data[_count++] = val;
             }
 
+            // Pop a value from the Stack
             Piece pop() {
                 assert(_count > 0 && "Stack Underflow");
                 return _data[--_count];
             }
 
+            // Get the heighest top in the stack
             const Piece& top() const {
                 assert(_count > 0);
                 return _data[_count - 1];
             }
 
+            // Returns True if val is inside the Cell
             bool contains(const Piece& val) const{
                 for (int i = 0; i<_count; ++i) {
                     if (_data[i] == val) return true;
@@ -46,13 +58,17 @@ namespace Hive {
                 return false;
             }
 
+            // Returns True if the Cell is empty
             bool empty() const {
                 return _count == 0;
             }
+            // Returns the number of elements in the Cell
             int size() const {
                 return _count;
             }
+            // Clear the Cell
             void clear() {
+                for (int i = 0; i<_count; ++i) _data[i] = Piece();
                 _count = 0;
             }
 
@@ -71,9 +87,12 @@ namespace Hive {
             }
     };
 
-    // Board 
-    // 1D array of dimension BOARD_AREA 
-    // Tiles can be retrieved with indexes  
+    // BOARD
+    // 1D array of dimension BOARD_AREA
+    // The first placed piece gets coordinates (q=0, r=0) --> (q+BOARD_OFFSET, r+BOARD_OFFSET) in the grid, and then "spliced" as follows:
+    // (q, r) -> q+BOARD_OFFSET + (r+BOARD_OFFSET)*BOARD_DIM
+    // A vector _occuied_cells takes care of all the cells with pieces above
+
 
     class Board{
         friend class RuleEngine;
@@ -85,10 +104,11 @@ namespace Hive {
         private:
             // Grid
             std::array<Cell, BOARD_AREA> _grid;
-            // Coordinates
+            // Occupied Coordinates
             std::vector<Coord> _occupied_coords;
 
             // Tile Neighbors
+            // Is the (negative) difference between a hypothetical piece (q, r) and its neighbors
             static constexpr std::array <int, 6> NEIGHBORS = {
                 1,                      // (1, 0)
                 BOARD_DIM,              // (0, 1)
@@ -100,12 +120,12 @@ namespace Hive {
 
         public:
             // Reserve memory for each of the 28 cells
-            Board() {
-                _occupied_coords.reserve(32);   
-            }
+            Board() : _grid() {
+            _occupied_coords.reserve(32);
+        }
 
 
-            // ----- Coordinates Math ----- 
+            // ----- Coordinates Math -----
             [[nodiscard]] static inline int AxToIndex(Coord coord) {
                 assert(isValid(coord) && "Axial Coordinate is not valid");
                 return (coord.r + BOARD_OFFSET) * BOARD_DIM  + (coord.q + BOARD_OFFSET);
@@ -120,7 +140,7 @@ namespace Hive {
 
             // ----- Queries -----
             
-            // Get top piece
+            // Get top piece over a given Coordinate
             const Piece* top(const Coord coord) const{
                 const Cell& idx = _grid[AxToIndex(coord)];
                 if (idx.empty()) return nullptr;
@@ -151,7 +171,8 @@ namespace Hive {
 
             void move(Coord from, Coord to);
 
-            void getOccupiedNeighbors(Coord coord, std::vector<Coord>& out);
+            // Retrieve all the occupied cells neighbor to a given coordinate
+            void getOccupiedNeighbors(Coord coord, std::vector<Coord>& out) const;
     };
 
 }

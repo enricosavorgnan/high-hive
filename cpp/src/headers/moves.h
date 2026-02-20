@@ -9,8 +9,15 @@
 #include <deque>
 #include <algorithm>
 
+// This header declares the structure Move and the bugs moves.
+// The implementation of the bugs moves mainly follows the one in the Python implementation.
+
 namespace Hive {
 
+    // struct Move can have 3 possible types:
+    // - Place: The move consists in taking a piece from the hand and placing it on the board
+    // - PieceMove: The move consists in taking a piece already placed in the board and move into some other coordinates
+    // - Pass: The move consists in a pass. It can occur if, e.g., the player have no moves left
     struct Move {
         enum Type{
             Place,
@@ -23,15 +30,25 @@ namespace Hive {
     };
 
     namespace Moves {
+        // The method defines whether the move from exclude coordinate to target coordinates does not break the One Hive Rule,
+        // leaving the piece in target coordinate far from other pieces.
         static bool touchesHive(const Board& board, Coord target, Coord exclude);
 
+        // Ant Move
         void getAntMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        // Beetle Move
         void getBeetleMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        // Grasshopper Move
         void getGrasshopperMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        // Ladybug Move
         void getLadybugMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        // Mosquito Move
         void getMosquitoMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        // Pillbug Move
         void getPillbugMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        // Queen Bee Move
         void getQueenMoves(const Board& board, Coord prop, std::vector<Move>& targets);
+        // Spider Move
         void getSpiderMoves(const Board& board, Coord prop, std::vector<Move>& targets);   
     }
     
