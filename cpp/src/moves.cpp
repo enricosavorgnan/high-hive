@@ -7,10 +7,15 @@ namespace Hive::Moves {
 
     // Contact Rule
     // Keep physical contact 
-    static bool touchesHive(const Board& board, Coord target, Coord exclude) {
-        auto neighbors = coordNeighbors(target);
-        for (const auto& n : neighbors) {
-            if (n == exclude) continue;
+    static bool touchesHive(const Board& board, Coord target, Coord prop) {
+        // If we are leaving a stack, the underlying piece remains a valid hive connection
+        bool propRemainsOccupied = (board.height(prop) > 1);
+
+        for (const auto& n : coordNeighbors(target)) {
+            if (n == prop) {
+                if (propRemainsOccupied) return true;
+                continue;
+            }
             if (!board.empty(n)) return true;
         }
         return false;
@@ -49,19 +54,14 @@ namespace Hive::Moves {
     
     void getBeetleMoves(const Board& board, Coord prop, std::vector<Coord>& targets) {
         auto neighbors = coordNeighbors(prop);
-        int currentHeight = board.height(prop);
         int propIdx = Board::AxToIndex(prop);
 
         for (const auto& n : neighbors) {
-            if (!board.empty(n)) {
-                // Climb up is always physically unobstructed
-                targets.push_back(n);
-            } else {
-                // If moving on ground (height == 1), sliding rules apply.
-                // If stepping down from the hive (height > 1), the slide is unconstrained by ground gates.
-                bool validSlide = (currentHeight > 1) ? true : RuleEngine::canSlide(board, propIdx, Board::AxToIndex(n));
-                
-                if (validSlide && touchesHive(board, n, prop)) {
+            int nIdx = Board::AxToIndex(n);
+
+            // The 3D slide rule natively handles climbing up, moving on top, and stepping down.
+            if (RuleEngine::canSlide(board, propIdx, nIdx)) {
+                if (touchesHive(board, n, prop)) {
                     targets.push_back(n);
                 }
             }

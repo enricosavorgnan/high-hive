@@ -8,7 +8,6 @@ namespace Hive{
         int diff = toIdx - fromIdx;
         int dir = -1;
 
-        // FROM and TO are neighbours
         for (int i = 0; i < 6; ++i) {
             if (Board::NEIGHBORS[i] == diff) {
                 dir = i; break;
@@ -19,7 +18,18 @@ namespace Hive{
         int gate1 = fromIdx + Board::NEIGHBORS[(dir + 5) % 6];
         int gate2 = fromIdx + Board::NEIGHBORS[(dir + 1) % 6];
 
-        return !(!board._grid[gate1].empty() && !board._grid[gate2].empty());
+        // 3D Sliding Check
+        int hFrom = board._grid[fromIdx].size();
+        int hTo = board._grid[toIdx].size();
+
+        // Calculate the peak transition height
+        int maxHeight = std::max(hFrom, hTo + 1);
+
+        int hGate1 = board._grid[gate1].size();
+        int hGate2 = board._grid[gate2].size();
+
+        // The slide is blocked if BOTH gates are at or above the maximum transition height
+        return !(hGate1 >= maxHeight && hGate2 >= maxHeight);
     }
 
     bool RuleEngine::isBoardConnected(const Board& board, int idx) {
