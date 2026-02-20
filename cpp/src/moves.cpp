@@ -115,36 +115,58 @@ namespace Hive::Moves {
             return;
         }
 
-        std::unordered_set<Coord, CoordHash> calculatedTargets;
+        // Allocate contiguous memory for intermediate accumulation
         std::vector<Coord> tempTargets;
-        
+        tempTargets.reserve(64); // Pre-allocate to prevent dynamic resizing overhead
+
+        // A lightweight array to track which bug behaviors have already been copied.
+        // This prevents running getAntMoves() multiple times if touching multiple Ants.
+        bool copiedBehaviors[8] = {false};
+
         auto neighbors = coordNeighbors(prop);
 
         for (const auto& n : neighbors) {
             const Piece* neighborPiece = board.top(n);
-            if (neighborPiece) {
-                tempTargets.clear();
-                
-                switch (neighborPiece->bug) {
-                    case Bug::Queen:       getQueenMoves(board, prop, tempTargets); break;
-                    case Bug::Beetle:      getBeetleMoves(board, prop, tempTargets); break;
-                    case Bug::Spider:      getSpiderMoves(board, prop, tempTargets); break;
-                    case Bug::Grasshopper: getGrasshopperMoves(board, prop, tempTargets); break;
-                    case Bug::Ant:         getAntMoves(board, prop, tempTargets); break;
-                    case Bug::Ladybug:     getLadybugMoves(board, prop, tempTargets); break;
-                    case Bug::Pillbug:     getPillbugMoves(board, prop, tempTargets); break;
-                    case Bug::Mosquito:    break; 
-                }
 
-                for (const auto& t : tempTargets) calculatedTargets.insert(t);
+            if (neighborPiece && neighborPiece->bug != Bug::Mosquito) {
+                int bugTypeIdx = static_cast<int>(neighborPiece->bug);
+
+                // If we have not already copied this bug's movement type
+                if (!copiedBehaviors[bugTypeIdx]) {
+                    copiedBehaviors[bugTypeIdx] = true;
+
+                    switch (neighborPiece->bug) {
+                        case Bug::Queen:       getQueenMoves(board, prop, tempTargets); break;
+                        case Bug::Beetle:      getBeetleMoves(board, prop, tempTargets); break;
+                        case Bug::Spider:      getSpiderMoves(board, prop, tempTargets); break;
+                        case Bug::Grasshopper: getGrasshopperMoves(board, prop, tempTargets); break;
+                        case Bug::Ant:         getAntMoves(board, prop, tempTargets); break;
+                        case Bug::Ladybug:     getLadybugMoves(board, prop, tempTargets); break;
+                        case Bug::Pillbug:     getPillbugMoves(board, prop, tempTargets); break;
+                        default: break;
+                    }
+                }
             }
         }
 
-        targets.assign(calculatedTargets.begin(), calculatedTargets.end());
+        if (tempTargets.empty()) return;
+
+        // Cache-friendly coordinate deduplication
+        // (A Beetle and a Queen might yield the exact same adjacent destination)
+        std::sort(tempTargets.begin(), tempTargets.end(), [](const Coord& a, const Coord& b) {
+            if (a.q != b.q) return a.q < b.q;
+            return a.r < b.r;
+        });
+
+        tempTargets.erase(std::unique(tempTargets.begin(), tempTargets.end()), tempTargets.end());
+
+        // Transfer unique coordinates to the main output buffer
+        targets.insert(targets.end(), tempTargets.begin(), tempTargets.end());
     }
 
 
-    void getPillbugMoves(const Board& board, Coord prop, std::vector<Coord>& targets) {
+    void getPillbugMoves(const Board &board, Coord prop, std::vector<Coord> &targets) {
+        // The Pillbug's standard movement is exactly identical to the Queen (1 step, slide).
         getQueenMoves(board, prop, targets);
     }
 

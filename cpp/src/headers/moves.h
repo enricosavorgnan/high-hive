@@ -34,22 +34,22 @@ namespace Hive {
         // leaving the piece in target coordinate far from other pieces.
         static bool touchesHive(const Board& board, Coord target, Coord exclude);
 
-        // Ant Move
-        void getAntMoves(const Board& board, Coord prop, std::vector<Move>& targets);
-        // Beetle Move
-        void getBeetleMoves(const Board& board, Coord prop, std::vector<Move>& targets);
-        // Grasshopper Move
-        void getGrasshopperMoves(const Board& board, Coord prop, std::vector<Move>& targets);
-        // Ladybug Move
-        void getLadybugMoves(const Board& board, Coord prop, std::vector<Move>& targets);
-        // Mosquito Move
-        void getMosquitoMoves(const Board& board, Coord prop, std::vector<Move>& targets);
-        // Pillbug Move
-        void getPillbugMoves(const Board& board, Coord prop, std::vector<Move>& targets);
-        // Queen Bee Move
-        void getQueenMoves(const Board& board, Coord prop, std::vector<Move>& targets);
-        // Spider Move
-        void getSpiderMoves(const Board& board, Coord prop, std::vector<Move>& targets);   
+        // Ant Move Coordinates
+        void getAntMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+        // Beetle Move Coordinates
+        void getBeetleMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+        // Grasshopper Move Coordinates
+        void getGrasshopperMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+        // Ladybug Move Coordinates
+        void getLadybugMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+        // Mosquito Move Coordinates
+        void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+        // Pillbug Move Coordinates
+        void getPillbugMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+        // Queen Bee Move Coordinates
+        void getQueenMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+        // Spider Move Coordinates
+        void getSpiderMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
     }
     
 }
