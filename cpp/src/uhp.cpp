@@ -6,6 +6,52 @@
 
 namespace Hive {
 
+    void UhpHandler::loop() {
+        std::string line;
+        while (std::getline(std::cin, line)) {
+            if (line.empty()) continue;
+
+            std::vector<std::string> chunks = splitCommand(line);
+            if (chunks.empty()) continue;
+
+            const std::string& cmd = chunks[0];
+
+            if (cmd == "u1") {
+                cmdU1();
+            }
+            else if (cmd == "info") {
+                cmdInfo();
+            }
+            else if (cmd == "newgame") {
+                cmdNewGame(chunks, line);
+            }
+            else if (cmd == "play") {
+                cmdPlay(chunks, line);
+            }
+            else if (cmd == "pass") {
+                cmdPass();
+            }
+            else if (cmd == "validmoves") {
+                cmdValidMoves();
+            }
+            else if (cmd == "bestmove") {
+                cmdBestMove(chunks);
+            }
+            else if (cmd == "undo") {
+                cmdUndo();
+            }
+            else if (cmd == "options") {
+                cmdOptions();
+            }
+            else if (cmd == "exit") {
+                break;
+            }
+
+            // Guarantee buffer flush to MZinga
+            std::cout << std::flush;
+        }
+    }
+
     // --- State Generators ---
 
     std::vector<Piece> UhpHandler::getHand(Color player) const {
@@ -64,51 +110,7 @@ namespace Hive {
         }
     }
 
-    void UhpHandler::loop() {
-        std::string line;
-        while (std::getline(std::cin, line)) {
-            if (line.empty()) continue;
-
-            std::vector<std::string> chunks = splitCommand(line);
-            if (chunks.empty()) continue;
-
-            const std::string& cmd = chunks[0];
-
-            if (cmd == "u1") {
-                cmdU1();
-            }
-            else if (cmd == "info") {
-                cmdInfo();
-            }
-            else if (cmd == "newgame") {
-                cmdNewGame(chunks, line);
-            }
-            else if (cmd == "play") {
-                cmdPlay(chunks, line);
-            }
-            else if (cmd == "pass") {
-                cmdPass();
-            }
-            else if (cmd == "validmoves") {
-                cmdValidMoves();
-            }
-            else if (cmd == "bestmove") {
-                cmdBestMove(chunks);
-            }
-            else if (cmd == "undo") {
-                cmdUndo();
-            }
-            else if (cmd == "options") {
-                cmdOptions();
-            }
-            else if (cmd == "exit") {
-                break;
-            }
-
-            // Guarantee buffer flush to MZinga
-            std::cout << std::flush;
-        }
-    }
+    // ----- Command Handlers -----
 
     void UhpHandler::cmdU1() {
         std::cout << "ok\n";
@@ -120,7 +122,6 @@ namespace Hive {
         std::cout << "ok\n";
     }
 
-    // --- Command Handlers ---
 
     void UhpHandler::cmdNewGame(const std::vector<std::string>& chunks, const std::string& line) {
         // Reset state
@@ -182,7 +183,7 @@ namespace Hive {
         std::cout << "ok\n";
     }
 
-    void UhpHandler::cmdValidMoves() {
+    void UhpHandler::cmdValidMoves() const {
         std::vector<Piece> hand = getHand(turnPlayer);
         std::vector<Move> validMoves = RuleEngine::generateMoves(board, turnPlayer, hand);
 
@@ -201,6 +202,7 @@ namespace Hive {
     }
 
     void UhpHandler::cmdBestMove(const std::vector<std::string>& chunks) const {
+        // assume bestmove time 00:00:05
         std::vector<Piece> hand = getHand(turnPlayer);
         std::vector<Move> validMoves = RuleEngine::generateMoves(board, turnPlayer, hand);
 

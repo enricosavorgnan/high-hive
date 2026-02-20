@@ -33,12 +33,13 @@ namespace Hive {
         void loop();
 
     private:
-        void cmdU1();
-        void cmdInfo();
+        static void cmdU1();
+
+        static void cmdInfo();
         void cmdNewGame(const std::vector<std::string>& chunks, const std::string& line);
         void cmdPlay(const std::vector<std::string>& chunks, const std::string& line);
         void cmdPass();
-        void cmdValidMoves();
+        void cmdValidMoves() const;
         void cmdBestMove(const std::vector<std::string>& chunks) const;
 
         static void cmdUndo();
