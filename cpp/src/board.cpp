@@ -3,8 +3,6 @@
 
 namespace Hive {
 
-    const std::array<int, 6> Board::NEIGHBORS = {1, -1, -BOARD_DIM, BOARD_DIM, -BOARD_DIM+1, BOARD_DIM-1};
-
     void Board::place (Coord coord, Piece piece) {
         int idx = AxToIndex(coord);
 
