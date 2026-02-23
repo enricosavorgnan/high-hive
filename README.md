@@ -5,7 +5,14 @@ A protocol for play Hive games using Universal Hive Protocol (UHP) *MZinga* prot
 ```
 ├── cpp/                        # C++ UHP implementation                  
 |   ├── src/
-|   └── material/
+|   └── material/daniele
+|       ├── 1coord.h            # axial coordinates system, coordinate operators and CoordHAsh
+|       ├── 2hexgrid.h          # hexgrid directions
+|       ├── 3piece.h            # pieces, color-names and bug-names
+|       ├── 4board.h            # board = unordered set< coord, vector<pieces>, coordhash>
+|       ├── 5move.h             # different kind of moves
+|       ├── 6state.h            # state of the game, color-turn, color-hand and undo
+|       └── 7movegen_place.h    # generate all possible placements
 |
 ├── py/                         # Python UHP implementation
 |   ├── log/                    # Log files for UHP interactions

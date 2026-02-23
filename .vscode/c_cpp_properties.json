@@ -14,6 +14,14 @@
             "cStandard": "c17",
             "cppStandard": "gnu++17",
             "intelliSenseMode": "windows-gcc-x64"
+        },
+        {
+            "name": "macOS",
+            "compilerPath": "/usr/bin/clang++",
+            "intelliSenseMode": "macos-clang-arm64",
+            "cppStandard": "c++20",
+            "cStandard": "c17",
+            "includePath": ["${workspaceFolder}/**"]
         }
     ],
     "version": 4
