@@ -16,7 +16,7 @@
             "intelliSenseMode": "windows-gcc-x64"
         },
         {
-            "name": "macOS",
+            "name": "Mac",
             "compilerPath": "/usr/bin/clang++",
             "intelliSenseMode": "macos-clang-arm64",
             "cppStandard": "c++20",
