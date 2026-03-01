@@ -14,6 +14,7 @@ A protocol for play Hive games using Universal Hive Protocol (UHP) *MZinga* prot
 |       ├── 6state.h            # state of the game, color-turn, color-hand and undo
 |       ├── 7movegen_place.h    # generate all possible placements
 |       └── 8onehive_art.h      # onehive rule: return all articulation points in linear time
+|       └── 9movegen_move.h     # generate all possible movements/drags, piece by piece
 |
 ├── py/                         # Python UHP implementation
 |   ├── log/                    # Log files for UHP interactions
