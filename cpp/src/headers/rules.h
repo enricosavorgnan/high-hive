@@ -1,15 +1,14 @@
 #pragma once
 
 #include "board.h"
-#include "moves.h"
 #include <vector>
 
-// RULES DECLARATION
-// The file declares the methods for retrieving the possible moves
-// TODO: Implement generateMoves, generatePlacements, generateMovements
-// TODO: Improve function declaration and description here in the header
+// Forward declaration - Move is defined in moves.h
+// This breaks the circular dependency between rules.h and moves.h
 
 namespace Hive {
+
+    struct Move; // forward declaration
 
     class RuleEngine {
         public:
@@ -19,8 +18,7 @@ namespace Hive {
             // Method aimed to retrieve whether a piece can move from coordinate fromIdx to coordinate toIdx
             // Returns True if the move is valid, otherwise False
             static bool canSlide(const Board& board, int fromIdx, int toIdx);
-        
-        private:
+
             // Method for checking the One Hive Rule, i.e.,for retrieving whether a board is connected if a piece at coordinate idx is removed.
             // ATTENTION: Runs a BFS under-the-hood. It is slow.
             //
@@ -31,10 +29,9 @@ namespace Hive {
             // Otherwise, returns False
             static bool isBoardConnected(const Board& board, int idx);
 
-            // TODO
+        private:
             static std::vector<Move> generatePlacements(const Board& board, Color player, const std::vector<Piece>& hand);
-            // TODO
-            static std::vector<Move> generateMovements(const Board& board, Color player); 
+            static std::vector<Move> generateMovements(const Board& board, Color player);
     };
 
 }

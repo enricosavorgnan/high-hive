@@ -104,7 +104,7 @@ namespace Hive
 
 
     // Helper to find a piece's coordinate on the board by scanning occupied cells
-    static bool findPieceOnBoard(const Board& board, const Piece& targetPiece, Coord& outCoord) {
+    bool findPieceOnBoard(const Board& board, const Piece& targetPiece, Coord& outCoord) {
         for (Coord c : board.occupiedCoords()) {
             int idx = Board::AxToIndex(c);
             // We only need to check the top of the stack for movement origins,

@@ -96,6 +96,7 @@ namespace Hive {
 
     class Board{
         friend class RuleEngine;
+        friend class GameState;
 
         public:
             using Cell = CellStack<Piece, MAX_STACK>;

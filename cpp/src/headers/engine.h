@@ -4,6 +4,7 @@
 #include "moves.h"
 #include "pieces.h"
 #include <vector>
+#include <string>
 
 namespace Hive {
 
@@ -23,3 +24,6 @@ namespace Hive {
     };
 
 } // namespace Hive
+
+// AlphaZeroEngine is defined in learning/alphazero_engine.h
+// and only available when compiled with ENABLE_LEARNING

@@ -3,7 +3,6 @@
 #include "coords.h"
 #include "pieces.h"
 #include "board.h"
-#include "rules.h"
 
 #include <unordered_set>
 #include <deque>
