@@ -28,6 +28,7 @@ namespace Hive {
 
             if (torch::cuda::is_available()) {
                 network_->to(torch::kCUDA);
+                network_->to(torch::kHalf);
             }
 
             mcts_ = std::make_unique<Learning::MCTS>(network_);
@@ -49,8 +50,9 @@ namespace Hive {
             // This is a simplification — ideally the GameState is passed through
             state.board() = board;
 
-            // Run MCTS search
-            auto moveVisits = mcts_->search(state, /*addNoise=*/false);
+            // Run time-budgeted MCTS search (4500ms = 500ms safety margin)
+            auto moveVisits = mcts_->searchWithBudget(
+                state, std::chrono::milliseconds(4500), /*addNoise=*/false);
 
             if (moveVisits.empty()) {
                 // Fallback to random

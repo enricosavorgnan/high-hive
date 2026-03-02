@@ -72,12 +72,12 @@ namespace Hive::Learning {
             float temperature = (moveCount < TEMP_THRESHOLD) ? TEMP_HIGH : TEMP_LOW;
             int selectedIdx = MCTS::selectAction(visitCounts, temperature);
 
-            // Apply selected move
+            // Apply selected move (compute action BEFORE apply — board state changes after)
             const Move& selectedMove = moveVisits[selectedIdx].first;
+            int selectedAction = ActionEncoder::moveToAction(selectedMove, state);
             state.apply(selectedMove);
 
             // Advance MCTS tree
-            int selectedAction = ActionEncoder::moveToAction(selectedMove, state);
             mcts.advanceTree(selectedAction);
 
             ++moveCount;

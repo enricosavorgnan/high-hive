@@ -42,7 +42,7 @@ namespace Hive::Learning {
     constexpr float EVAL_THRESHOLD = 0.55f; // Win rate to promote new model
 
     // --- Self-play ---
-    constexpr int MAX_GAME_LENGTH = 200;    // Safety cutoff for game length
+    constexpr int MAX_GAME_LENGTH = 100;    // Safety cutoff (tournament: 100 half-moves)
 
     // --- Pre-training ---
     constexpr int PRETRAIN_EPOCHS = 30;

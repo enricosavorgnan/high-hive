@@ -8,8 +8,8 @@
 #include "nn/headers/action_encoder.h"
 #include "config/headers/config.h"
 
+#include <chrono>
 #include <memory>
-#include <unordered_map>
 #include <vector>
 #include <random>
 
@@ -31,6 +31,7 @@ namespace Hive::Learning {
     struct MCTSNode {
         MCTSNode* parent = nullptr;
         int action = -1;  // Action that led to this node
+        Move move{Move::Pass, {}, {0,0}, {0,0}};  // Cached move (avoids regenerating legalMoves)
 
         float prior = 0.0f;     // P(a) from NN policy
         int visitCount = 0;     // N(s,a)
@@ -78,6 +79,13 @@ namespace Hive::Learning {
         // Run MCTS search from current state. Returns visit counts per legal move.
         // add_noise: whether to add Dirichlet noise at root (for exploration during training)
         std::vector<std::pair<Move, int>> search(GameState& state, bool addNoise = true);
+
+        // Time-budgeted search: runs simulations until the deadline.
+        // For tournament inference — keeps search() with fixed sim count for training.
+        std::vector<std::pair<Move, int>> searchWithBudget(
+            GameState& state,
+            std::chrono::milliseconds budget,
+            bool addNoise = false);
 
         // Select action based on visit counts and temperature
         // temp=1.0: sample proportional to N^(1/temp)
