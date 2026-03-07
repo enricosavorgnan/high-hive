@@ -1,12 +1,18 @@
-FROM nvidia/cuda:12.4.0-devel-ubuntu22.04
+FROM nvidia/cuda:12.6.3-devel-ubuntu22.04
 
 RUN apt-get update && apt-get install -y \
     build-essential \
-    cmake \
     wget \
     unzip \
     git \
     && rm -rf /var/lib/apt/lists/*
+
+# Install CMake 3.31 (needed for CUDA20 dialect support)
+RUN cd /tmp \
+    && wget -q https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-linux-x86_64.tar.gz \
+    && tar xzf cmake-3.31.6-linux-x86_64.tar.gz -C /opt \
+    && rm cmake-3.31.6-linux-x86_64.tar.gz
+ENV PATH=/opt/cmake-3.31.6-linux-x86_64/bin:$PATH
 
 # Download LibTorch (CUDA 12.6, stable)
 RUN cd /opt \
