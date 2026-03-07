@@ -153,6 +153,11 @@ namespace Hive {
                 return _occupied_coords;
             }
             
+            // Get cell at index (for iteration over stack contents)
+            const Cell& cellAt(int idx) const {
+                return _grid[idx];
+            }
+
             // Get cell height
             int height (Coord coord) const {
                 return _grid[AxToIndex(coord)].size();

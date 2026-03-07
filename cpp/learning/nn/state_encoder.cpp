@@ -56,7 +56,7 @@ namespace Hive::Learning {
 
             // Process each piece in the stack
             for (int h = 0; h < height; ++h) {
-                const Piece& p = board._grid[idx]._data[h];
+                const Piece& p = board.cellAt(idx)._data[h];
                 int bugIdx = bugIndex(p.bug);
 
                 if (p.color == me) {
@@ -97,7 +97,7 @@ namespace Hive::Learning {
             for (const auto& coord : occupied) {
                 int idx = Board::AxToIndex(coord);
                 for (int h = 0; h < board.height(coord); ++h) {
-                    const Piece& p = board._grid[idx]._data[h];
+                    const Piece& p = board.cellAt(idx)._data[h];
                     if (p.color == c && p.bug == Bug::Queen) {
                         auto neighbors = coordNeighbors(coord);
                         int occCount = 0;
