@@ -70,21 +70,24 @@ inline bool CanSlideOneStep(const Board& b,
 }
 
 // CanSlideOneStepOverHive:
-// Variante per chi si muove "sopra" l'alveare (coleottero, coccinella).
+// Variante per chi si muove (o muove altri pezzi) "sopra" l'alveare.
 // L'idea: non puoi passare attraverso una strettoia se entrambi i due stack laterali
-// sono almeno alti quanto il livello su cui ti trovi.
-// - livello = altezza ("z") del pezzo che sta scorrendo in quel momento
-// Nota: qui NON richiediamo dst vuota. Serve anche per salire su stack.
+// sono almeno alti quanto il livello del pezzo che si muove, o strett più alti della destinazione.
+// Nota: qui NON richiediamo dst vuota
 inline bool CanSlideOneStepOverHive(const Board& b,
                                    const Coord& liftedFrom,
                                    const Coord& src,
                                    const Coord& dst,
-                                   int livello) {
+                                   int hFrom) {
+  const int hTo = HeightAfterLift(b, liftedFrom, dst);
   auto lr = hexgridCommonNeighborsAdjacent(src, dst);
   const int hL = HeightAfterLift(b, liftedFrom, lr.first);
   const int hR = HeightAfterLift(b, liftedFrom, lr.second);
-  if (hL >= livello && hR >= livello) return false;
-  return true;
+  //if (hL >= hFrom && hR >= hFrom && hL > hTo && hR> hTo) return false;
+  //if (hL > hFrom && hR > hFrom && hL >= hTo && hR>= hTo) return false;
+  if (hFrom > hL || hFrom > hR) return true; //sta scendendo da più in alto, no problem
+  if (hTo >= hL || hTo >= hR) return true; //si sta arrampicando sopra allo stesso livello, no problem
+  else return false;
 }
 
 // ---------------------------------
@@ -99,16 +102,18 @@ inline void SingleQueenMoves(const Board& b, const Coord& from, std::vector<Move
 
 inline void SingleBeetleMoves(const Board& b, const Coord& from, std::vector<Move>& out) {
   const int hFrom = b.height(from);
-  const int livello = hFrom; // il coleottero sta al livello pari all'altezza dello stack che lo contiene
+  //const int livello = hFrom; // il coleottero sta al livello pari all'altezza dello stack che lo contiene
 
   for (const auto& nb : hexgridNeighbors(from)) {
     if (hFrom >= 2) {
       // Se è sopra l'alveare, può andare su qualunque adiacente (vuoto o occupato),
       // ma non può infilarsi in strettoie a questo livello.
-      if (CanSlideOneStepOverHive(b, from, from, nb, livello)) {
+      //if (CanSlideOneStepOverHive(b, from, from, nb, livello)) {
+      if (CanSlideOneStepOverHive(b, from, from, nb, hFrom)) {  
         out.push_back(Move::move(from, nb));
       }
-    } else {
+    } 
+    else {
       // A terra: se va su vuoto usa CanSlideOneStep (con vincolo di contatto).
       // Se sale su occupato, basta la freedom-to-move a livello 1 (non entrambi i laterali occupati).
       if (b.occupied(nb)) {
@@ -208,8 +213,7 @@ inline void SingleLadybugMoves(const Board& b, const Coord& from, std::vector<Mo
   for (const auto& a : hexgridNeighbors(from)) {
     if (!OccupiedAfterLift(b, from, a)) continue; // passo 1 su occupato
     {
-      const int livello = HeightAfterLift(b, from, from) + 1;
-      if (!CanSlideOneStepOverHive(b, from, from, a, livello)) continue;
+      if (!CanSlideOneStepOverHive(b, from, from, a, 1)) continue;
     }
 
     for (const auto& b2 : hexgridNeighbors(a)) {
@@ -228,6 +232,7 @@ inline void SingleLadybugMoves(const Board& b, const Coord& from, std::vector<Mo
         // la coccinella deve atterrare a contatto dell'alveare (in pratica è sempre vero,
         // ma lo controlliamo per simmetria)
         if (!HasOccupiedNeighborAfterLift(b, from, c)) continue;
+        if (from == c) continue;
 
         dests.insert(c);
       }
@@ -262,11 +267,13 @@ inline void AppendPillbugDragMoves(const Board& b,
     if (b.height(src) != 1) continue;
     if (lastMovedTo && *lastMovedTo == src) continue;
     if (!oneHiveAllowsLiftFrom(b, src, articulation)) continue;
+    if (!CanSlideOneStepOverHive(b, src, src, actingPillbug, 1)) continue;
 
     // Candidati destinazione (vuoti adiacenti al pillbug)
     for (const auto& dst : adjs) {
       if (dst == src) continue;
       if (b.occupied(dst)) continue;
+      if (!CanSlideOneStepOverHive(b, src, actingPillbug, dst, 2)) continue;
       // deve restare attaccato all'alveare (di sicuro tocca il pillbug)
       out.push_back(Move::drag(src, actingPillbug, dst));
     }
