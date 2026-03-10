@@ -3,6 +3,8 @@
 #include <deque>
 #include <algorithm>
 
+#include "rules.h"
+
 namespace Hive::Moves {
 
     // Contact Rule
@@ -38,11 +40,10 @@ namespace Hive::Moves {
             }
 
             auto neighbors = coordNeighbors(curr);
-            int currIdx = Board::AxToIndex(curr);
 
             for (const auto& n : neighbors) {
-                if (board.empty(n) && visited.find(n) == visited.end()) {
-                    if (RuleEngine::canSlide(board, currIdx, Board::AxToIndex(n)) && touchesHive(board, n, curr)) {
+                if (board.empty(n) && !visited.contains(n)) {
+                    if (RuleEngine::canSlide(board, curr, n) && touchesHive(board, n, curr)) {
                         visited.insert(n);
                         queue.push_back(n);
                     }
@@ -54,13 +55,11 @@ namespace Hive::Moves {
     
     void getBeetleMoves(const Board& board, Coord prop, std::vector<Coord>& targets) {
         auto neighbors = coordNeighbors(prop);
-        int propIdx = Board::AxToIndex(prop);
 
         for (const auto& n : neighbors) {
-            int nIdx = Board::AxToIndex(n);
 
             // The 3D slide rule natively handles climbing up, moving on top, and stepping down.
-            if (RuleEngine::canSlide(board, propIdx, nIdx)) {
+            if (RuleEngine::canSlide(board, prop, n)) {
                 if (touchesHive(board, n, prop)) {
                     targets.push_back(n);
                 }
@@ -153,7 +152,7 @@ namespace Hive::Moves {
 
         // Cache-friendly coordinate deduplication
         // (A Beetle and a Queen might yield the exact same adjacent destination)
-        std::sort(tempTargets.begin(), tempTargets.end(), [](const Coord& a, const Coord& b) {
+        std::ranges::sort(tempTargets, [](const Coord& a, const Coord& b) {
             if (a.q != b.q) return a.q < b.q;
             return a.r < b.r;
         });
@@ -173,11 +172,10 @@ namespace Hive::Moves {
 
     void getQueenMoves(const Board& board, Coord prop, std::vector<Coord>& targets) {
         auto neighbors = coordNeighbors(prop);
-        int propIdx = Board::AxToIndex(prop);
 
         for (const auto& n : neighbors) {
             if (board.empty(n)) {
-                if (RuleEngine::canSlide(board, propIdx, Board::AxToIndex(n)) && touchesHive(board, n, prop)) {
+                if (RuleEngine::canSlide(board, prop, n) && touchesHive(board, n, prop)) {
                     targets.push_back(n);
                 }
             }
@@ -200,14 +198,13 @@ namespace Hive::Moves {
             stack.pop_back();
 
             if (current.depth == 3) {
-                if (std::find(targets.begin(), targets.end(), current.c) == targets.end()) {
+                if (std::ranges::find(targets.begin(), targets.end(), current.c) == targets.end()) {
                     targets.push_back(current.c);
                 }
                 continue;
             }
 
             auto neighbors = coordNeighbors(current.c);
-            int currIdx = Board::AxToIndex(current.c);
 
             for (const auto& n : neighbors) {
                 if (!board.empty(n)) continue;
@@ -216,7 +213,7 @@ namespace Hive::Moves {
                 for(const auto& p : current.path) if(p == n) visited = true;
                 if(visited) continue;
 
-                if (!RuleEngine::canSlide(board, currIdx, Board::AxToIndex(n))) continue;
+                if (!RuleEngine::canSlide(board, current.c, n)) continue;
                 if (!touchesHive(board, n, current.c)) continue;
 
                 std::vector<Coord> nextPath = current.path;
