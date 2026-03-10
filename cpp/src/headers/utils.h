@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <sstream>
 #include "board.h"
 #include "moves.h"

@@ -18,7 +18,7 @@ namespace Hive {
 
             // Method aimed to retrieve whether a piece can move from coordinate fromIdx to coordinate toIdx
             // Returns True if the move is valid, otherwise False
-            static bool canSlide(const Board& board, int fromIdx, int toIdx);
+            static bool canSlide(const Board& board, Coord from, Coord to);
         
         private:
             // Method for checking the One Hive Rule, i.e.,for retrieving whether a board is connected if a piece at coordinate idx is removed.
@@ -29,7 +29,7 @@ namespace Hive {
             // - Piece at index idx is a leaf in the graph, return True.
             // - All neighbors are visited in BFS, return True.
             // Otherwise, returns False
-            static bool isBoardConnected(const Board& board, int idx);
+            static bool isBoardConnected(const Board& board, Coord coord);
 
             // TODO
             static std::vector<Move> generatePlacements(const Board& board, Color player, const std::vector<Piece>& hand);

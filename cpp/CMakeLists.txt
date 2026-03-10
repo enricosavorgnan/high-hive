@@ -6,8 +6,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(uhp
   src/main.cpp
+        src/board.cpp
+        src/engine.cpp
+        src/moves.cpp
+        src/rules.cpp
+        src/uhp.cpp
+        src/utils.cpp
 )
 
 target_include_directories(uhp PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/headers
 )

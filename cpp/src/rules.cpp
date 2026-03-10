@@ -4,84 +4,83 @@
 
 namespace Hive{
 
-    bool RuleEngine::canSlide(const Board& board, int fromIdx, int toIdx) {
-        int diff = toIdx - fromIdx;
-        int dir = -1;
+    bool RuleEngine::canSlide(const Board& board, Coord from, Coord to) {
+        // Retrieve the two common adjacent hexagonal "gates" between 'from' and 'to'
+        std::pair<Coord, Coord> common = neighborAdjacent(from, to);
 
-        for (int i = 0; i < 6; ++i) {
-            if (Board::NEIGHBORS[i] == diff) {
-                dir = i; break;
-            }
-        }
-        if (dir == -1) return false;
-
-        int gate1 = fromIdx + Board::NEIGHBORS[(dir + 5) % 6];
-        int gate2 = fromIdx + Board::NEIGHBORS[(dir + 1) % 6];
-
-        // 3D Sliding Check
-        int hFrom = board._grid[fromIdx].size();
-        int hTo = board._grid[toIdx].size();
+        // 3D Sliding Check: Retrieve the stack heights using the public interface
+        int hFrom = board.height(from);
+        int hTo = board.height(to);
 
         // Calculate the peak transition height
         int maxHeight = std::max(hFrom, hTo + 1);
 
-        int hGate1 = board._grid[gate1].size();
-        int hGate2 = board._grid[gate2].size();
+        int hGate1 = board.height(common.first);
+        int hGate2 = board.height(common.second);
 
         // The slide is blocked if BOTH gates are at or above the maximum transition height
         return !(hGate1 >= maxHeight && hGate2 >= maxHeight);
     }
 
-    bool RuleEngine::isBoardConnected(const Board& board, int idx) {
+    bool RuleEngine::isBoardConnected(const Board& board, Coord coord) {
         // Stack check: If the stack height is >= 2, removing the top piece leaves a piece behind:
-        // current connectivity is kept.
-        if (board._grid[idx].size() >= 2) {
+        // current connectivity is maintained.
+        if (board.height(coord) >= 2) {
             return true;
         }
 
-        // Occupied neighbors
-        std::array<int, 6> neighbors;
+        // Identify Occupied neighbors
+        std::array<Coord, 6> occNeighbors;
         int neighCount = 0;
-        for (int i = 0; i < 6; ++i) {
-            int neighborIdx = idx + Board::NEIGHBORS[i];
-            if (!board._grid[neighborIdx].empty()) {
-                neighbors[neighCount++] = neighborIdx;
+
+        for (const Coord& n : coordNeighbors(coord)) {
+            if (!board.empty(n)) {
+                occNeighbors[neighCount++] = n;
             }
         }
+
         // Leaf node check: A node with 0 or 1 neighbors is not an articulation point:
-        // current connectivity is kept
+        // current connectivity is maintained.
         if (neighCount < 2) {
             return true;
         }
 
-        // BFS traversal to verify if all neighbors remain connected without the piece at 'idx'.
-        std::bitset<BOARD_AREA> visited;
-        std::vector<int> q;
-        q.reserve(32); // Pieces are 28 so 32 is ok
+        // BFS traversal to verify if all neighbors remain connected without the piece at 'coord'.
+        // Note: For N <= 28, a pre-allocated vector with std::find is faster than hashing in an unordered_set.
+        std::vector<Coord> visited;
+        visited.reserve(32);
 
-        q.push_back(neighbors[0]);
-        visited.set(neighbors[0]);
+        std::vector<Coord> q;
+        q.reserve(32);
+
+        // Initialize BFS from the first discovered occupied neighbor
+        q.push_back(occNeighbors[0]);
+        visited.push_back(occNeighbors[0]);
 
         size_t head = 0;
         while (head < q.size()) {
-            int curr = q[head++];
+            Coord curr = q[head++];
 
-            for (int offset : Board::NEIGHBORS) {
-                int next = curr + offset;
-                // Exclude the piece being simulated for removal,
-                // empty cells, and already evaluated cells.
-                if (next == idx || board._grid[next].empty() || visited.test(next)) {
+            for (const Coord& next : coordNeighbors(curr)) {
+                // Strictly exclude the piece being simulated for removal, and empty cells.
+                if (next == coord || board.empty(next)) {
                     continue;
                 }
 
-                visited.set(next);
+                // Check if the coordinate has already been evaluated
+                if (std::find(visited.begin(), visited.end(), next) != visited.end()) {
+                    continue;
+                }
+
+                visited.push_back(next);
                 q.push_back(next);
             }
         }
 
-        // If any neighbor is absent from the visited set, it implies the graph has been partitioned into distinct components.
+        // Connectivity Validation: If any original neighbor is absent from the visited set,
+        // it implies the graph has been partitioned into distinct components.
         for (int i = 1; i < neighCount; ++i) {
-            if (!visited.test(neighbors[i])) {
+            if (std::find(visited.begin(), visited.end(), occNeighbors[i]) == visited.end()) {
                 return false;
             }
         }

@@ -3,7 +3,6 @@
 #include "coords.h"
 #include "pieces.h"
 #include "board.h"
-#include "rules.h"
 
 #include <unordered_set>
 #include <deque>
@@ -22,7 +21,7 @@ namespace Hive {
         enum Type{
             Place,
             PieceMove,
-            Pass
+            Pass,
         } type;
         Piece piece; // for Place
         Coord from;  // for Move
