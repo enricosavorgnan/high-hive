@@ -3,7 +3,10 @@
 
 namespace Hive {
 
-    void Board::place (Coord coord, Piece piece) {
+    // ----- !!!!! -----
+    // Board as Array Implementations
+    // ----- !!!!! -----
+    void BoardAsArray::place (Coord coord, Piece piece) {
         int idx = AxToIndex(coord);
 
         if (_grid[idx].empty()) {
@@ -12,7 +15,7 @@ namespace Hive {
         _grid[idx].push(piece);
     }
 
-    Piece Board::remove(Coord coord) {
+    Piece BoardAsArray::remove(Coord coord) {
         const int idx = AxToIndex(coord);
         const Piece piece = _grid[idx].pop();
 
@@ -28,12 +31,12 @@ namespace Hive {
         return piece;
     }
 
-    void Board::move(const Coord from, const Coord to) {
+    void BoardAsArray::move(const Coord from, const Coord to) {
         const Piece piece = remove(from);
         place(to, piece);
     }
 
-    void Board::getOccupiedNeighbors(const Coord coord, std::vector<Coord>& out) const {
+    void BoardAsArray::getOccupiedNeighbors(const Coord coord, std::vector<Coord>& out) const {
         out.clear();
         const int centerIdx = AxToIndex(coord);
 
@@ -44,5 +47,53 @@ namespace Hive {
             }
         }
     }
+
+
+    // ----- !!!!! -----
+    // Board as Unordered Map Implementations
+    // ----- !!!!! -----
+    void BoardAsUnorderedMap::place(Coord coord, Piece piece) {
+        if (empty(coord)) {
+            _occupied_coords.push_back(coord);
+        }
+        cells_[coord].push_back(piece);
+    }
+
+    Piece BoardAsUnorderedMap::remove(Coord coord) {
+        auto& st = cells_.at(coord);
+        Piece p = st.back();
+        st.pop_back();
+
+        if (st.empty()) {
+            cells_.erase(coord);
+
+            for (size_t i = 0; i < _occupied_coords.size(); ++i) {
+                if (_occupied_coords[i] == coord) {
+                    _occupied_coords[i] = _occupied_coords.back();
+                    _occupied_coords.pop_back();
+                    break;
+                }
+            }
+        }
+        return p;
+    }
+
+    void BoardAsUnorderedMap::move(Coord from, Coord to) {
+        Piece p = remove(from);
+        place(to, p);
+    }
+
+
+    void BoardAsUnorderedMap::getOccupiedNeighbors(Coord coord, std::vector<Coord>& out) const {
+        // Leverage the mathematical neighbor generator to query surrounding geometry
+        for (const Coord& neighbor : coordNeighbors(coord)) {
+            if (!empty(neighbor)) {
+                out.push_back(neighbor);
+            }
+        }
+    }
+
+
+
 
 }

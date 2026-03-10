@@ -3,7 +3,6 @@
 #include <vector>
 #include <string>
 #include <optional>
-#include <algorithm>
 #include <unordered_map>
 #include <cassert>
 
@@ -137,7 +136,7 @@ namespace Hive {
 
         public:
             // Reserve memory for each of the 28 cells
-            Board() : _grid() {
+            Board() {
             _occupied_coords.reserve(32);
             }
 
@@ -215,7 +214,7 @@ namespace Hive {
         // ----- Queries -----
         const Piece* top(const Coord coord) const {
             auto it = cells_.find(coord);
-            if (it == cells_.end() || it->second.empty()) return std::nullopt;
+            if (it == cells_.end() || it->second.empty()) return nullptr;
             return &it->second.back();
         }
 
@@ -237,46 +236,13 @@ namespace Hive {
 
 
         // ----- Operations -----
-        void place(Coord coord, Piece piece) {
-            if (empty(coord)) {
-                _occupied_coords.push_back(coord);
-            }
-            cells_[coord].push_back(piece);
-        }
+        void place(Coord coord, Piece piece);
 
-        Piece remove(Coord coord) {
-            auto& st = cells_.at(coord);
-            Piece p = st.back();
-            st.pop_back();
+        Piece remove(Coord coord);
 
-            if (st.empty()) {
-                cells_.erase(coord);
+        void move(Coord from, Coord to);
 
-                for (size_t i = 0; i < _occupied_coords.size(); ++i) {
-                    if (_occupied_coords[i] == coord) {
-                        _occupied_coords[i] = _occupied_coords.back();
-                        _occupied_coords.pop_back();
-                        break;
-                    }
-                }
-            }
-            return p;
-        }
-
-        void move(Coord from, Coord to) {
-            Piece p = remove(from);
-            place(to, p);
-        }
-
-
-        void getOccupiedNeighbors(Coord coord, std::vector<Coord>& out) const {
-            // Leverage the mathematical neighbor generator to query surrounding geometry
-            for (const Coord& neighbor : coordNeighbors(coord)) {
-                if (!empty(neighbor)) {
-                    out.push_back(neighbor);
-                }
-            }
-        }
+        void getOccupiedNeighbors(Coord coord, std::vector<Coord>& out) const;
 
 
         // LEGACY FUNCTIONS
@@ -306,12 +272,11 @@ namespace Hive {
         //     for (const auto& kv : cells_) out.push_back(kv.first);
         //     return out;
         // }
+    };
 
-
-
-    #ifdef USE_UNORDERED_MAP_BOARD
-        using Board = BoardAsUnorderedMap;
-    #else
-        using Board = BoardAsArray;
-    #endif
-}
+#ifdef USE_UNORDERED_MAP_BOARD
+    using Board = BoardAsUnorderedMap;
+#else
+    using Board = BoardAsArray;
+#endif
+};
