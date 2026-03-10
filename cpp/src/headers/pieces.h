@@ -37,8 +37,8 @@ namespace Hive {
     // Piece structure
     // Tuple (Color, Bug, id)
     struct Piece {
-        Color color;
-        Bug bug;
+        Color color{Color::White};
+        Bug bug{Bug::Queen};
         uint8_t id = 0;
 
         friend bool operator == (const Piece& a, const Piece& b) {

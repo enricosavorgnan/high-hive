@@ -13,12 +13,13 @@ static constexpr std::array<Coord, 6> HEXGRID_DIRS = {
   Coord{+1,  0}, Coord{ 0, +1}, Coord{-1, +1}, Coord{ -1, 0},
   Coord{0,  -1}, Coord{+1, -1}
 };
-
+  // DIRECTIONS in coords.h
 
 inline std::array<Coord, 6> hexgridNeighbors(const Coord& c) {
   return { c + HEXGRID_DIRS[0], c + HEXGRID_DIRS[1], c + HEXGRID_DIRS[2],
            c + HEXGRID_DIRS[3], c + HEXGRID_DIRS[4], c + HEXGRID_DIRS[5] };
 }
+  // coordNeighbors in coords.h
 
 // Se B è adiacente ad A ritorna l'indice direzione da A a B, altrimenti -1
 inline int hexgridDirectionIndex(const Coord& A, const Coord& B) {

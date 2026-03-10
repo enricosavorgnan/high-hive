@@ -44,7 +44,7 @@ namespace Hive {
             std::uint64_t r = static_cast<std::uint16_t> (coord.r) * 19349663u;
 
             // left shifted XOR
-            return std::size_t (q ^ (r << 1));
+            return (std::size_t) (q ^ (r << 1));
         }
     };
 
@@ -81,10 +81,10 @@ namespace Hive {
         return -1;
     }
 
-    // Method for retrieving the two common neighbors if two tiles A,B are adjacent.
+    // Method for retrieving the two common neighbors if two tiles A and B are adjacent.
     // Returns the couples of coordinates of the two common neighbors
     inline std::pair<Coord, Coord> neighborAdjacent(const Coord& a, const Coord& b) {
-        int direction = neighborDirectionIndex(a, b);
+        const int direction = neighborDirectionIndex(a, b);
         assert(direction != -1 && "Coordinates A and B must be adjacent");
 
         Coord left = a + DIRECTIONS[(direction+5)%6];
