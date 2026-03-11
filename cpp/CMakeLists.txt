@@ -14,6 +14,8 @@ add_executable(uhp
         src/utils.cpp
         src/headers/generator.h
         src/generator.cpp
+        src/headers/state.h
+        src/state.cpp
 )
 
 target_include_directories(uhp PRIVATE
