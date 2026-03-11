@@ -4,19 +4,42 @@
 
 namespace Hive{
 
-    bool RuleEngine::canSlide(const Board& board, Coord from, Coord to) {
+    // Keep physical contact
+    bool RuleEngine::touchesHive(const Board& board, Coord target, Coord prop) {
+        // If we are leaving a stack, the underlying piece remains a valid hive connection
+        bool propRemainsOccupied = (board.height(prop) > 1);
+
+        for (const auto& n : coordNeighbors(target)) {
+            if (n == prop) {
+                if (propRemainsOccupied) return true;
+                continue;
+            }
+            if (!board.empty(n)) return true;
+        }
+        return false;
+    }
+
+    bool RuleEngine::canSlide(const Board& board, Coord from, Coord to, std::optional<Coord> ignoreProp) {
         // Retrieve the two common adjacent hexagonal "gates" between 'from' and 'to'
         std::pair<Coord, Coord> common = neighborAdjacent(from, to);
 
+        // Lambda function needed for LadyBug moves
+        auto vHeight = [&](Coord c, bool isCurrentlyHere) {
+            int h = board.height(c);
+            if (c == ignoreProp && ignoreProp.has_value() ) h -= 1; // The bug physically left its origin
+            if (isCurrentlyHere) h += 1; // The bug is currently standing here
+            return h;
+        };
+
         // 3D Sliding Check: Retrieve the stack heights using the public interface
-        int hFrom = board.height(from);
-        int hTo = board.height(to);
+        int hFrom = vHeight(from, true);
+        int hTo = vHeight(to, false);
 
         // Calculate the peak transition height
         int maxHeight = std::max(hFrom, hTo + 1);
 
-        int hGate1 = board.height(common.first);
-        int hGate2 = board.height(common.second);
+        int hGate1 = vHeight(common.first, false);
+        int hGate2 = vHeight(common.second, false);
 
         // The slide is blocked if BOTH gates are at or above the maximum transition height
         return !(hGate1 >= maxHeight && hGate2 >= maxHeight);

@@ -29,10 +29,6 @@ namespace Hive {
     };
 
     namespace Moves {
-        // The method defines whether the move from exclude coordinate to target coordinates does not break the One Hive Rule,
-        // leaving the piece in target coordinate far from other pieces.
-        static bool touchesHive(const Board& board, Coord target, Coord exclude);
-
         // Ant Move Coordinates
         void getAntMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
         // Beetle Move Coordinates
