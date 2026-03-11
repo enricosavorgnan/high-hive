@@ -2,22 +2,18 @@
 
 #include <string>
 #include <vector>
-#include <memory>  // Required for std::unique_ptr
-#include "board.h"
+#include <memory>
 #include "utils.h"
-#include "rules.h"
-#include "engine.h" // Include the new engine header
+#include "engine.h"
+#include "state.h"
 
 namespace Hive {
 
     class UhpHandler {
-    private:
-        Board board;
+        State state;
 
         std::string gameType = "Base+MLP";
         std::string gameState = "NotStarted";
-        int turnNumber = 1;
-        Color turnPlayer = Color::White;
         std::vector<std::string> moveHistory;
 
         std::string generateGameString() const;
@@ -26,24 +22,19 @@ namespace Hive {
         // The polymorphic engine instance, initialized as RandomEngine
         std::unique_ptr<Engine> engine = std::make_unique<RandomEngine>();
 
-        std::vector<Piece> getHand(Color player) const;
-
     public:
         UhpHandler() = default;
         void loop();
 
     private:
         static void cmdU1();
-
         static void cmdInfo();
         void cmdNewGame(const std::vector<std::string>& chunks, const std::string& line);
         void cmdPlay(const std::vector<std::string>& chunks, const std::string& line);
         void cmdPass();
         void cmdValidMoves() const;
         void cmdBestMove(const std::vector<std::string>& chunks) const;
-
-        static void cmdUndo();
-
+        void cmdUndo();
         static void cmdOptions();
     };
 

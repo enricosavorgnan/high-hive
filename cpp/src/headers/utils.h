@@ -26,6 +26,9 @@ namespace Hive {
     // Converts a Move to a valid UHP string
     inline std::string MoveToString(const Move& move, const Board& board);
 
+    // Helper to find a piece's coordinate on the board by scanning occupied cells
+    bool findPieceOnBoard(const Board& board, const Piece& targetPiece, Coord& outCoord);
+
     // Converts a UHP move string to a Move
     Move StringToMove(const std::string& moveStr, const Board& board);
     

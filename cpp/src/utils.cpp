@@ -50,6 +50,7 @@ namespace Hive
                 case 'L': bug = Bug::Ladybug; break;
                 case 'M': bug = Bug::Mosquito; break;
                 case 'P': bug = Bug::Pillbug; break;
+                default: ;
             }
         }
         uint8_t id = (str.size() > 2) ? str[2]-'0' : 0;
@@ -104,9 +105,8 @@ namespace Hive
 
 
     // Helper to find a piece's coordinate on the board by scanning occupied cells
-    static bool findPieceOnBoard(const Board& board, const Piece& targetPiece, Coord& outCoord) {
+    bool findPieceOnBoard(const Board& board, const Piece& targetPiece, Coord& outCoord) {
         for (Coord c : board.occupiedCoords()) {
-            int idx = Board::AxToIndex(c);
             // We only need to check the top of the stack for movement origins,
             // but for references, UHP allows referencing covered pieces.
             // Assuming the board's CellStack has a way to iterate or we just check the top for now.
@@ -155,7 +155,6 @@ namespace Hive
         else if (refStr.back() == '\\') { offset = {0, 1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
         else {
             // No prefix/suffix means placing directly ON TOP of the reference piece (Beetle/Mosquito)
-            offset = {0, 0};
             refPieceStr = refStr;
         }
 
