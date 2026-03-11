@@ -13,9 +13,6 @@ namespace Hive {
 
     class RuleEngine {
         public:
-            // Method that internally calls generatePlacements and generateMovements and returns all the moves found
-            static std::vector<Move> generateMoves(const Board& board, Color turnPlayer, const std::vector<Piece>& hand, std::optional<Coord> lastMovedPieceCoord = std::nullopt);
-
             // Method aimed to retrieve whether a piece can move from coordinate fromIdx to coordinate toIdx
             // Returns True if the move is valid, otherwise False
             static bool canSlide(const Board& board, Coord from, Coord to, std::optional<Coord> ignoreProp = std::nullopt);
@@ -39,12 +36,6 @@ namespace Hive {
 
             // Replaces the old 'isBoardConnected'. Operates in O(1) time.
             static bool canLiftPiece(const Board& board, Coord coord, const std::unordered_set<Coord, CoordHash>& articulationPoints);
-        
-        private:
-            // TODO
-            static std::vector<Move> generatePlacements(const Board& board, Color player, const std::vector<Piece>& hand);
-            // TODO
-            static std::vector<Move> generateMovements(const Board& board, Color player, std::optional<Coord> lastMovedPieceCoord);
     };
 
 }

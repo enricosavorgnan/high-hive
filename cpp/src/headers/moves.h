@@ -24,10 +24,10 @@ namespace Hive {
             Pass,
             Drag
         } type;
-        Piece piece; // for Place
-        Coord from;  // for Move
-        Coord to;    // for Place and Move
-        Coord pillbug; // pillbug opeating the Drag move
+        Piece piece;            // for Place
+        Coord from;             // for Move
+        Coord to;               // for Place and Move
+        Coord pillbug;          // pillbug operating the Drag move
     };
 
     namespace Moves {
@@ -42,7 +42,6 @@ namespace Hive {
 
         // Mosquito Move Coordinates
         void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints);
-
 
         // Pillbug Move Coordinates
         void getPillbugMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints);

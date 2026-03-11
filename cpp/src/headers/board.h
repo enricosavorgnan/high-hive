@@ -10,7 +10,7 @@
 #include "pieces.h"
 
 // ----------------- !!!!!! -----------------
-// Comment the following for using unordered map as active Board
+// Uncomment the following for using Unordered Map as active Board structure
 //
 // #define USE_UNORDERED_MAP_BOARD
 //
