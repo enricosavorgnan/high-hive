@@ -136,7 +136,7 @@ namespace Hive {
 
         public:
             // Reserve memory for each of the 28 cells
-            Board() {
+            BoardAsArray() {
             _occupied_coords.reserve(32);
             }
 
@@ -196,16 +196,17 @@ namespace Hive {
     class BoardAsUnorderedMap {
     public:
         using Stack = std::vector<Piece>;
+        using UPCellStack = std::vector<Piece>;
 
     private:
-        std::unordered_map<Coord, Stack, CoordHash> cells_;
+        std::unordered_map<Coord, UPCellStack, CoordHash> cells_;
         std::vector<Coord> _occupied_coords;
 
     public:
         //l'immagine evocativa è che moralmente è una scacchiera di stack di pezzi
         //il primo pezzo che abbandona una cella è quello posto più in alto
         //finchè quello più in alto non si sposta, quelli sotto non si spostano
-        using Stack = std::vector<Piece>;
+
 
         BoardAsUnorderedMap() {
             _occupied_coords.reserve(32);

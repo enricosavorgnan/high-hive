@@ -41,13 +41,13 @@ namespace Hive {
         void getLadybugMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
 
         // Mosquito Move Coordinates
-        void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets);
+        void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints);
 
 
         // Pillbug Move Coordinates
-        void getPillbugMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets);
+        void getPillbugMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints);
         // Pillbug Drag Move Coordinates
-        void getPillbugDragMoves(const Board& board, Coord prop, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets);
+        void getPillbugDragMoves(const Board& board, Coord prop, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints);
 
         // Queen Bee Move Coordinates
         void getQueenMoves(const Board& board, Coord prop, std::vector<Coord>& targets);

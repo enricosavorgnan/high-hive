@@ -100,7 +100,7 @@ namespace Hive::Moves {
     }
 
 
-    void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets) {
+    void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints) {
         if (board.height(prop) > 1) {
             getBeetleMoves(board, prop, targets);
             return;
@@ -133,7 +133,7 @@ namespace Hive::Moves {
                         case Bug::Grasshopper: getGrasshopperMoves(board, prop, tempTargets); break;
                         case Bug::Ant:         getAntMoves(board, prop, tempTargets); break;
                         case Bug::Ladybug:     getLadybugMoves(board, prop, tempTargets); break;
-                        case Bug::Pillbug:     getPillbugMoves(board, prop, tempTargets,lastMovedPieceCoord, dragTargets); break;
+                        case Bug::Pillbug:     getPillbugMoves(board, prop, tempTargets,lastMovedPieceCoord, dragTargets, articulationPoints); break;
                         default: break;
                     }
                 }
@@ -156,7 +156,7 @@ namespace Hive::Moves {
     }
 
 
-    void getPillbugDragMoves(const Board &board, const Coord prop, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>> &dragTargets) {
+    void getPillbugDragMoves(const Board &board, const Coord prop, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>> &dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints) {
         std::vector<Coord> validSources;
         std::vector<Coord> validDestinations;
         std::array<Coord, 6> neighbors = coordNeighbors(prop);
@@ -166,8 +166,8 @@ namespace Hive::Moves {
             if (board.empty(src)) continue;
             if (board.height(src) > 1) continue;
             if (lastMovedPieceCoord && src == *lastMovedPieceCoord) continue;
-            if (!RuleEngine::isBoardConnected(board, src)) continue;
-
+            if (!RuleEngine::canLiftPiece(board, src, articulationPoints)) continue;
+            if (!RuleEngine::canSlide(board, src, prop, src)) continue;
             validSources.push_back(src);
         }
 
@@ -191,11 +191,11 @@ namespace Hive::Moves {
     }
 
 
-    void getPillbugMoves(const Board &board, Coord prop, std::vector<Coord> &targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>> &dragTargets) {
+    void getPillbugMoves(const Board &board, Coord prop, std::vector<Coord> &targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>> &dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints) {
         // The Pillbug's standard movement is exactly identical to the Queen (1 step, slide).
         getQueenMoves(board, prop, targets);
         // Special Drag move
-        getPillbugDragMoves(board, prop, lastMovedPieceCoord, dragTargets);
+        getPillbugDragMoves(board, prop, lastMovedPieceCoord, dragTargets, articulationPoints);
     }
 
 

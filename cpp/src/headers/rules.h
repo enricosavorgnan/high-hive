@@ -14,7 +14,7 @@ namespace Hive {
     class RuleEngine {
         public:
             // Method that internally calls generatePlacements and generateMovements and returns all the moves found
-            static std::vector<Move> generateMoves(const Board& board, Color turnPlayer, const std::vector<Piece>& hand);
+            static std::vector<Move> generateMoves(const Board& board, Color turnPlayer, const std::vector<Piece>& hand, std::optional<Coord> lastMovedPieceCoord = std::nullopt);
 
             // Method aimed to retrieve whether a piece can move from coordinate fromIdx to coordinate toIdx
             // Returns True if the move is valid, otherwise False
@@ -33,12 +33,18 @@ namespace Hive {
             // - All neighbors are visited in BFS, return True.
             // Otherwise, returns False
             static bool isBoardConnected(const Board& board, Coord coord);
+
+            // Precomputes all articulation points in O(V) time using Tarjan's Algorithm.
+            static std::unordered_set<Coord, CoordHash> getArticulationPoints(const Board& board);
+
+            // Replaces the old 'isBoardConnected'. Operates in O(1) time.
+            static bool canLiftPiece(const Board& board, Coord coord, const std::unordered_set<Coord, CoordHash>& articulationPoints);
         
         private:
             // TODO
             static std::vector<Move> generatePlacements(const Board& board, Color player, const std::vector<Piece>& hand);
             // TODO
-            static std::vector<Move> generateMovements(const Board& board, Color player); 
+            static std::vector<Move> generateMovements(const Board& board, Color player, std::optional<Coord> lastMovedPieceCoord);
     };
 
 }

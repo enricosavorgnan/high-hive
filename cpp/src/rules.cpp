@@ -111,20 +111,99 @@ namespace Hive{
         return true;
     }
 
+
+    std::unordered_set<Coord, CoordHash> RuleEngine::getArticulationPoints(const Board& board) {
+        const std::vector<Coord>& verts = board.occupiedCoords();
+        int n = static_cast<int>(verts.size());
+
+        std::unordered_set<Coord, CoordHash> ap_set;
+        if (n <= 1) return ap_set;
+
+        // 1. Map Coordinates to 1D array indices [0...n-1] for the DFS algorithm
+        std::unordered_map<Coord, int, CoordHash> id_map;
+        id_map.reserve(n * 2);
+        for (int i = 0; i < n; ++i) {
+            id_map[verts[i]] = i;
+        }
+
+        // 2. Build the Adjacency List
+        std::vector<std::vector<int>> adj(n);
+        for (int i = 0; i < n; ++i) {
+            for (const Coord& neighbor : coordNeighbors(verts[i])) {
+                if (!board.empty(neighbor)) {
+                    adj[i].push_back(id_map[neighbor]);
+                }
+            }
+        }
+
+        // 3. Tarjan's DFS State Variables
+        std::vector<int> disc(n, -1);
+        std::vector<int> low(n, -1);
+        std::vector<int> parent(n, -1);
+        std::vector<bool> ap(n, false);
+        int time = 0;
+
+        // DFS Lambda
+        std::function<void(int)> dfs = [&](int u) {
+            disc[u] = low[u] = ++time;
+            int children = 0;
+
+            for (int v : adj[u]) {
+                if (disc[v] == -1) { // If v is not visited
+                    children++;
+                    parent[v] = u;
+                    dfs(v);
+
+                    low[u] = std::min(low[u], low[v]);
+
+                    // Case 1: Root node with >= 2 independent children
+                    if (parent[u] == -1 && children > 1) ap[u] = true;
+
+                    // Case 2: Non-root node where no back-edge reaches above u
+                    if (parent[u] != -1 && low[v] >= disc[u]) ap[u] = true;
+
+                } else if (v != parent[u]) { // Back-edge found
+                    low[u] = std::min(low[u], disc[v]);
+                }
+            }
+        };
+
+        // 4. Execute DFS
+        for (int i = 0; i < n; ++i) {
+            if (disc[i] == -1) dfs(i);
+        }
+
+        // 5. Translate articulation indices back to true Coords
+        for (int i = 0; i < n; ++i) {
+            if (ap[i]) ap_set.insert(verts[i]);
+        }
+
+        return ap_set;
+    }
+
+
+    bool RuleEngine::canLiftPiece(const Board& board, Coord coord, const std::unordered_set<Coord, CoordHash>& articulationPoints) {
+        // If it is stacked, lifting the top piece leaves a physical piece behind, preserving the hive.
+        if (board.height(coord) >= 2) return true;
+
+        // If it is NOT stacked, it must NOT be an articulation point.
+        return articulationPoints.find(coord) == articulationPoints.end();
+    }
+
     std::vector<Move> generatePlacements(const Board& board, Color player, const std::vector<Piece>& hand) {
         return;
         // TODO: write function
     }
 
-    std::vector<Move> generateMovements(const Board& board, Color player) {
+    std::vector<Move> generateMovements(const Board& board, Color player, std::optional<Coord> lastMovedPieceCoord) {
         return;
         // TODO: write function
     }
 
-    std::vector<Move> generateMoves(const Board& board, Color turnPlayer, const std::vector<Piece>& hand) {
+    std::vector<Move> generateMoves(const Board& board, Color turnPlayer, const std::vector<Piece>& hand, std::optional<Coord> lastMovedPieceCoord = std::nullopt) {
         std::vector<Move> placements = generatePlacements(board, turnPlayer, hand);
 
-        std::vector<Move> movements = generateMovements(board, turnPlayer);
+        std::vector<Move> movements = generateMovements(board, turnPlayer, lastMovedPieceCoord);
 
         placements.insert(placements.end(), movements.begin(), movements.end());
 
