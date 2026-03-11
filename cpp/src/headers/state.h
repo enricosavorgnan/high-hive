@@ -86,6 +86,24 @@ namespace Hive {
                 const auto& hand = (piece.color == Color::White) ? _whiteHand : _blackHand;
                 return std::ranges::find(hand, piece) != hand.end();
             }
+            // Retrieves one of each available bug type to prevent duplicate game-tree branches
+            [[nodiscard]] std::vector<Piece> getUniqueAvailablePieces(Color color) const {
+                    std::vector<Piece> uniquePieces;
+                    uniquePieces.reserve(8);
+                    const auto& hand = (color == Color::White) ? _whiteHand : _blackHand;
+
+                    bool found[8] = {false};
+                    for (const Piece& p : hand) {
+                        if (p.id != 255) { // 255 is the empty slot marker
+                            int bugIdx = static_cast<int>(p.bug);
+                            if (!found[bugIdx]) {
+                                uniquePieces.push_back(p);
+                                found[bugIdx] = true;
+                            }
+                        }
+                    }
+                    return uniquePieces;
+                }
 
             // For applying a specific move onto the Board
             void applyMove(const Move& move);
