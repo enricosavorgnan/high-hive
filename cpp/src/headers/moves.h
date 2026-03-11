@@ -22,10 +22,12 @@ namespace Hive {
             Place,
             PieceMove,
             Pass,
+            Drag
         } type;
         Piece piece; // for Place
         Coord from;  // for Move
         Coord to;    // for Place and Move
+        Coord pillbug; // pillbug opeating the Drag move
     };
 
     namespace Moves {
@@ -37,10 +39,16 @@ namespace Hive {
         void getGrasshopperMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
         // Ladybug Move Coordinates
         void getLadybugMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+
         // Mosquito Move Coordinates
-        void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+        void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets);
+
+
         // Pillbug Move Coordinates
-        void getPillbugMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+        void getPillbugMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets);
+        // Pillbug Drag Move Coordinates
+        void getPillbugDragMoves(const Board& board, Coord prop, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets);
+
         // Queen Bee Move Coordinates
         void getQueenMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
         // Spider Move Coordinates

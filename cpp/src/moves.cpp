@@ -100,7 +100,7 @@ namespace Hive::Moves {
     }
 
 
-    void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets) {
+    void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets) {
         if (board.height(prop) > 1) {
             getBeetleMoves(board, prop, targets);
             return;
@@ -133,7 +133,7 @@ namespace Hive::Moves {
                         case Bug::Grasshopper: getGrasshopperMoves(board, prop, tempTargets); break;
                         case Bug::Ant:         getAntMoves(board, prop, tempTargets); break;
                         case Bug::Ladybug:     getLadybugMoves(board, prop, tempTargets); break;
-                        case Bug::Pillbug:     getPillbugMoves(board, prop, tempTargets); break;
+                        case Bug::Pillbug:     getPillbugMoves(board, prop, tempTargets,lastMovedPieceCoord, dragTargets); break;
                         default: break;
                     }
                 }
@@ -191,7 +191,7 @@ namespace Hive::Moves {
     }
 
 
-    void getPillbugMoves(const Board &board, Coord prop, std::optional<Coord> lastMovedPieceCoord ,std::vector<Coord> &targets, std::vector<std::pair<Coord, Coord>> dragTargets) {
+    void getPillbugMoves(const Board &board, Coord prop, std::vector<Coord> &targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>> &dragTargets) {
         // The Pillbug's standard movement is exactly identical to the Queen (1 step, slide).
         getQueenMoves(board, prop, targets);
         // Special Drag move
