@@ -47,21 +47,86 @@ namespace Hive {
         return s;
     }
 
-    void UhpHandler::applyMove(const std::string& moveStr) {
-        // 1. Check on move type
-        if (moveStr == "pass") {
-            Move move;
-            move.type = Move::Pass;
-            state.applyMove(move);
-            return;
-        } else {
-            Move move = StringToMove(moveStr, state.board());
-            state.applyMove(move);
+    bool UhpHandler::applyMove(const std::string& moveStr, bool validate) {
+        UhpCodec codec(state, uhpBoard);
+        auto pr0pt = codec.parseUhpRequest(moveStr);
+
+        if (!pr0pt) return false;
+        const auto& pr = *pr0pt;
+
+        // 1. Handle Passing
+        if (pr.isPass) {
+            if (validate) {
+                auto moves = MoveGenerator::generateMoves(state);
+                // Passing is mathematically illegal if any physical moves exist
+                if (!moves.empty() && !(moves.size() == 1 && moves[0].type == Move::Pass)) {
+                    return false;
+                }
+            }
+            Move passMove;
+            passMove.type = Move::Pass;
+            state.applyMove(passMove);
+            moveHistory.push_back("pass");
+            gameState = "InProgress";
+            return true;
         }
 
-        // 2. Update internal state
+        if (!pr.dest || !pr.parsedPiece) return false;
+        const Coord dest = *pr.dest;
+        const ParsedPieceName pp = *pr.parsedPiece;
+
+
+        // 2. Generate the Game Tree Node to find the Semantic Match
+        auto moves = MoveGenerator::generateMoves(state);
+        std::optional<Move> chosenMove = std::nullopt;
+
+        auto fromOpt = uhpBoard.whereIs(pr.pieceName);
+        if (!fromOpt) {
+            // The piece is not on the board yet, so this must be a Placement intent
+            for (const auto& mv : moves) {
+                if (mv.type != Move::Place) continue;
+                if (mv.piece.color != pp.color) continue;
+                if (mv.piece.bug != pp.bug) continue;
+                if (mv.to != dest) continue; // Ensure the geometric vector matches
+
+                chosenMove = mv;
+                break;
+            }
+        } else {
+            // The piece is on the board, so this must be a Movement or Drag intent
+            Coord from = *fromOpt;
+            auto topName = uhpBoard.topName(from);
+
+            // UHP strictly requires moving the piece that is physically on top of the stack
+            if (!topName || *topName != pr.pieceName) return false;
+
+            for (const auto& mv : moves) {
+                if (mv.type == Move::Place || mv.type == Move::Pass) continue;
+                if (mv.from != from) continue;
+                if (mv.to != dest) continue;
+
+                // We found the exact move. If this was a Drag, mv now contains the orchestrator data.
+                chosenMove = mv;
+                break;
+            }
+        }
+
+        if (!chosenMove) {
+            // The opponent bot sent an illegal move (or a desync occurred)
+            return false;
+        }
+
+        // 3. Commit the Validated Move to both memory structures
+        const Move cm = *chosenMove;
+        state.applyMove(cm); // Updates the physical mathematical grid
+        if (cm.type == Move::Place) {
+            uhpBoard.push(cm.to, pr.pieceName); // Updates the text layer mapping
+        } else {
+            uhpBoard.moveTop(cm.from, cm.to);
+        }
         moveHistory.push_back(moveStr);
         gameState = "InProgress";
+        return true;
     }
 
     // ----- Command Handlers -----
@@ -95,7 +160,7 @@ namespace Hive {
                 else if (tokenIndex == 1) gameState = token;
                 else if (tokenIndex == 2) { /* Turn string - we infer this from moves applied */ }
                 else {
-                    applyMove(token); // Replay history onto the board
+                    applyMove(token, VALIDATE); // Replay history onto the board
                 }
                 tokenIndex++;
             }
@@ -110,7 +175,7 @@ namespace Hive {
             // Extract the exact move string avoiding split manipulation errors
             std::string moveStr = line.substr(line.find(chunks[1]));
 
-            applyMove(moveStr);
+            applyMove(moveStr, VALIDATE);
 
             std::cout << generateGameString() << "\n";
         }
@@ -119,7 +184,7 @@ namespace Hive {
 
     void UhpHandler::cmdPass() {
         // A pass is technically a move in UHP. We apply it directly.
-        applyMove("pass");
+        applyMove("pass", VALIDATE);
         std::cout << generateGameString() << "\n";
         std::cout << "ok\n";
     }

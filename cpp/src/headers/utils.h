@@ -9,6 +9,8 @@
 #include "state.h"
 
 namespace Hive {
+    // Set as false for speeding up move insertion
+    inline bool VALIDATE = true;
 
     // --- Basic String Utilities ---
     std::string trim(const std::string& s);

@@ -18,7 +18,7 @@ namespace Hive {
         std::vector<std::string> moveHistory;
 
         std::string generateGameString() const;
-        void applyMove(const std::string& moveStr);
+        bool applyMove(const std::string& moveStr, bool validate);
 
         // The polymorphic engine instance, initialized as RandomEngine
         std::unique_ptr<Engine> engine = std::make_unique<RandomEngine>();
