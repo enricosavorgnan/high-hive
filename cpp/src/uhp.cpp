@@ -135,7 +135,7 @@ namespace Hive {
 
     void UhpHandler::cmdInfo() {
         std::cout << "id high-hive-engine v0.1\n";
-        std::cout << "Mosquito;Ladybug;Pillbug";
+        std::cout << "Mosquito;Ladybug;Pillbug\n";
         std::cout << "ok\n";
     }
 

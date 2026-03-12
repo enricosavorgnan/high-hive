@@ -10,6 +10,8 @@ int main() {
     Hive::UhpHandler uhp;
 
     uhp.cmdInfo();
+    std::cout << std::flush;
+
 
     uhp.loop();
 

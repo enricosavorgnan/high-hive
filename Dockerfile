@@ -33,4 +33,4 @@ COPY --from=builder /build_env/build/high_hive /app/high_hive
 RUN chmod +x /app/high_hive
 
 # Execute the engine
-CMD ["/app/high_hive"]
+ENTRYPOINT ["/app/high_hive"]
