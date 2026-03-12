@@ -104,19 +104,49 @@ namespace Hive::Learning {
         std::regex suRe(R"(SU\[([^\]]*)\])");
         if (std::regex_search(content, match, suRe)) info.gameType = match[1].str();
 
-        // Resolve result: boardspace uses "X won by PlayerName" style
-        // Convert to "white wins" / "black wins" for parseResult()
-        {
+        // Resolve result: boardspace uses localized "won by PlayerName" style.
+        // First check for draw keywords, then try to match player names.
+        // Bot names may have numeric suffixes (Dumbot0/Dumbot1) not in the RE tag.
+        if (!info.result.empty()) {
             std::string lower = info.result;
             std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-            if (lower.find("won") != std::string::npos || lower.find("wygrana") != std::string::npos) {
-                // Check if the winning player is P0 (white) or P1 (black)
-                if (!info.white.empty() && info.result.find(info.white) != std::string::npos) {
-                    info.result = "white wins";
-                } else if (!info.black.empty() && info.result.find(info.black) != std::string::npos) {
-                    info.result = "black wins";
-                }
-                // If neither name matched, leave as-is for parseResult() fallback
+
+            // Check draw in any language
+            if (lower.find("draw") != std::string::npos ||
+                lower.find("nulle") != std::string::npos ||
+                lower.find("nul") != std::string::npos ||
+                lower.find("empate") != std::string::npos ||
+                lower.find("remis") != std::string::npos ||
+                lower.find("unentschieden") != std::string::npos) {
+                info.result = "draw";
+            } else {
+                // Try to find player name in result string.
+                // Strip trailing digits from P0/P1 names for fuzzy match
+                // (boardspace appends 0/1 to bot names: "Dumbot0" but RE says "Dumbot")
+                auto baseName = [](const std::string& name) -> std::string {
+                    std::string base = name;
+                    while (!base.empty() && std::isdigit(static_cast<unsigned char>(base.back())))
+                        base.pop_back();
+                    return base;
+                };
+
+                std::string wBase = baseName(info.white);
+                std::string bBase = baseName(info.black);
+
+                bool whiteWon = false, blackWon = false;
+                // Exact name match first
+                if (!info.white.empty() && info.result.find(info.white) != std::string::npos)
+                    whiteWon = true;
+                else if (!info.black.empty() && info.result.find(info.black) != std::string::npos)
+                    blackWon = true;
+                // Fuzzy: base name without trailing digits
+                else if (!wBase.empty() && wBase != info.white && info.result.find(wBase) != std::string::npos)
+                    whiteWon = true;
+                else if (!bBase.empty() && bBase != info.black && info.result.find(bBase) != std::string::npos)
+                    blackWon = true;
+
+                if (whiteWon) info.result = "white wins";
+                else if (blackWon) info.result = "black wins";
             }
         }
 
@@ -242,12 +272,18 @@ namespace Hive::Learning {
 
         if (game.moves.empty()) return samples;
 
-        // Parse game outcome
+        // Parse game outcome from result string
         float whiteOutcome = parseResult(game.result);
-        if (whiteOutcome == 0.0f && game.result.empty()) {
-            return samples; // Skip games with unknown result
-        }
+        bool needInferResult = (whiteOutcome == 0.0f && game.result.empty());
 
+        // Pass 1: replay all moves, validate legality, record (state, policy) pairs.
+        // If no result string, we'll infer the outcome from the final board state.
+        struct PendingSample {
+            torch::Tensor state;
+            torch::Tensor policy;
+            Color toMove;
+        };
+        std::vector<PendingSample> pending;
         GameState state;
 
         for (const auto& sgfMove : game.moves) {
@@ -259,14 +295,11 @@ namespace Hive::Learning {
                 Move passMove;
                 passMove.type = Move::Pass;
 
-                // Record sample before applying
-                TrainingSample sample;
-                sample.state = StateEncoder::encode(state);
-                // For supervised training, policy is one-hot on the actual move played
-                sample.policy = torch::zeros({ACTION_SPACE});
-                // Pass has no meaningful action encoding; skip policy for pass
-                sample.value = (state.toMove() == Color::White) ? whiteOutcome : -whiteOutcome;
-                samples.push_back(std::move(sample));
+                PendingSample ps;
+                ps.state = StateEncoder::encode(state);
+                ps.policy = torch::zeros({ACTION_SPACE});
+                ps.toMove = state.toMove();
+                pending.push_back(std::move(ps));
 
                 state.apply(passMove);
                 continue;
@@ -280,7 +313,6 @@ namespace Hive::Learning {
             try {
                 move = StringToMove(uhpMove, state.board());
             } catch (...) {
-                // Parse error — discard entire game
                 return {};
             }
 
@@ -290,7 +322,7 @@ namespace Hive::Learning {
                 if (lm.type == move.type && lm.to == move.to) {
                     if (move.type == Move::Place && lm.piece.bug == move.piece.bug) {
                         isLegal = true;
-                        move = lm; // Use the legal move's exact piece (correct id)
+                        move = lm;
                         break;
                     } else if (move.type == Move::PieceMove && lm.from == move.from) {
                         isLegal = true;
@@ -301,26 +333,44 @@ namespace Hive::Learning {
             }
 
             if (!isLegal) {
-                // Illegal move — discard entire game
                 return {};
             }
 
-            // Record training sample
-            TrainingSample sample;
-            sample.state = StateEncoder::encode(state);
-
-            // One-hot policy on the played move
-            sample.policy = torch::zeros({ACTION_SPACE});
+            // Record pending sample
+            PendingSample ps;
+            ps.state = StateEncoder::encode(state);
+            ps.policy = torch::zeros({ACTION_SPACE});
             int action = ActionEncoder::moveToAction(move, state);
             if (action >= 0 && action < ACTION_SPACE) {
-                sample.policy[action] = 1.0f;
+                ps.policy[action] = 1.0f;
             }
+            ps.toMove = state.toMove();
+            pending.push_back(std::move(ps));
 
-            sample.value = (state.toMove() == Color::White) ? whiteOutcome : -whiteOutcome;
-            samples.push_back(std::move(sample));
-
-            // Apply the move
             state.apply(move);
+        }
+
+        // If no RE tag, infer result from final board state (queen surrounded)
+        if (needInferResult) {
+            auto gr = state.result();
+            if (gr == GameResult::WhiteWin)
+                whiteOutcome = 1.0f;
+            else if (gr == GameResult::BlackWin)
+                whiteOutcome = -1.0f;
+            else if (gr == GameResult::Draw)
+                whiteOutcome = 0.0f;  // draw is valid
+            else
+                return {};  // game didn't end in a decisive result, skip
+        }
+
+        // Pass 2: assign value labels and build final samples
+        samples.reserve(pending.size());
+        for (auto& ps : pending) {
+            TrainingSample sample;
+            sample.state = std::move(ps.state);
+            sample.policy = std::move(ps.policy);
+            sample.value = (ps.toMove == Color::White) ? whiteOutcome : -whiteOutcome;
+            samples.push_back(std::move(sample));
         }
 
         return samples;
@@ -329,7 +379,8 @@ namespace Hive::Learning {
     std::vector<TrainingSample> SgfParser::processDirectory(const std::string& dirPath) {
         std::vector<TrainingSample> allSamples;
         int totalGames = 0, validGames = 0, totalSamples = 0;
-        int noResult = 0, noMoves = 0, parseError = 0, illegalMove = 0;
+        int noMoves = 0, illegalMove = 0;
+        int resultFromTag = 0, resultInferred = 0, resultUnknown = 0;
 
         for (const auto& entry : std::filesystem::recursive_directory_iterator(dirPath)) {
             if (entry.path().extension() == ".sgf") {
@@ -342,23 +393,21 @@ namespace Hive::Learning {
                     continue;
                 }
 
-                float outcome = parseResult(gameInfo.result);
-                if (outcome == 0.0f && gameInfo.result.empty()) {
-                    ++noResult;
-                    continue;
-                }
+                bool hasResultTag = !gameInfo.result.empty();
 
                 auto samples = processGame(gameInfo);
 
                 if (!samples.empty()) {
                     ++validGames;
+                    if (hasResultTag) ++resultFromTag;
+                    else ++resultInferred;
                     totalSamples += static_cast<int>(samples.size());
                     allSamples.insert(allSamples.end(),
                         std::make_move_iterator(samples.begin()),
                         std::make_move_iterator(samples.end()));
                 } else {
-                    // processGame returned empty → parse error or illegal move
-                    ++illegalMove;
+                    if (!hasResultTag) ++resultUnknown;
+                    else ++illegalMove;
                 }
 
                 if (totalGames % 500 == 0) {
@@ -377,10 +426,14 @@ namespace Hive::Learning {
                   << "  Total SGF files:    " << totalGames << "\n"
                   << "  Kept (valid):       " << validGames
                   << " (" << keepPct << "%)\n"
+                  << "    - result from RE: " << resultFromTag << "\n"
+                  << "    - result inferred:" << resultInferred
+                  << " (from final board state)\n"
                   << "  Discarded:          " << discarded
                   << " (" << discardPct << "%)\n"
                   << "    - no moves:       " << noMoves << "\n"
-                  << "    - no result:      " << noResult << "\n"
+                  << "    - no result:      " << resultUnknown
+                  << " (no RE tag + no queen surrounded)\n"
                   << "    - illegal/parse:  " << illegalMove << "\n"
                   << "  Training samples:   " << totalSamples << "\n"
                   << "  Avg samples/game:   "
