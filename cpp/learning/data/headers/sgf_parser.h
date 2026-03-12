@@ -39,6 +39,10 @@ namespace Hive::Learning {
 
         // Parse the result string to get outcome (+1 white wins, -1 black wins, 0 draw)
         static float parseResult(const std::string& result);
+
+    private:
+        // Convert boardspace piece + reference to UHP move string
+        static std::string convertToUhp(const std::string& piece, const std::string& ref);
     };
 
 } // namespace Hive::Learning
