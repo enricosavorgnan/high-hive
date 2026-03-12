@@ -26,17 +26,17 @@ namespace Hive {
         public:
             UhpHandler() = default;
             void loop();
-
-        private:
             static void cmdU1();
             static void cmdInfo();
+            static void cmdOptions();
+
+        private:
             void cmdNewGame(const std::vector<std::string>& chunks, const std::string& line);
             void cmdPlay(const std::vector<std::string>& chunks, const std::string& line);
             void cmdPass();
             void cmdValidMoves() const;
             void cmdBestMove(const std::vector<std::string>& chunks) const;
             void cmdUndo();
-            static void cmdOptions();
         };
 
 } // namespace Hive
