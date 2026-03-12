@@ -88,7 +88,7 @@ namespace Hive {
         assert(direction != -1 && "Coordinates A and B must be adjacent");
 
         Coord left = a + DIRECTIONS[(direction+5)%6];
-        Coord right = b + DIRECTIONS[(direction+1)%6];
+        Coord right = a + DIRECTIONS[(direction+1)%6];
         return {left, right};
     }
 

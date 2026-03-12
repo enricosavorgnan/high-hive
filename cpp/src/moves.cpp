@@ -28,7 +28,7 @@ namespace Hive::Moves {
 
             for (const auto& n : neighbors) {
                 if (board.empty(n) && !visited.contains(n)) {
-                    if (RuleEngine::canSlide(board, curr, n) && RuleEngine::touchesHive(board, n, curr)) {
+                    if (RuleEngine::canSlide(board, curr, n, prop) && RuleEngine::touchesHive(board, n, prop)) {
                         visited.insert(n);
                         queue.push_back(n);
                     }
@@ -173,7 +173,7 @@ namespace Hive::Moves {
 
         // Phase 2. Find valid spots
         for (const auto &dst : neighbors) {
-            if (!board.empty(dst)) {
+            if (board.empty(dst)) {
                 validDestinations.push_back(dst);
             }
         }
@@ -242,8 +242,8 @@ namespace Hive::Moves {
                 for(const auto& p : current.path) if(p == n) visited = true;
                 if(visited) continue;
 
-                if (!RuleEngine::canSlide(board, current.c, n)) continue;
-                if (!RuleEngine::touchesHive(board, n, current.c)) continue;
+                if (!RuleEngine::canSlide(board, current.c, n, prop)) continue;
+                if (!RuleEngine::touchesHive(board, n, prop)) continue;
 
                 std::vector<Coord> nextPath = current.path;
                 nextPath.push_back(n);
