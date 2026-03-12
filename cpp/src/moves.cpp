@@ -119,8 +119,19 @@ namespace Hive::Moves {
         for (const auto& n : neighbors) {
             const Piece* neighborPiece = board.top(n);
 
-            if (neighborPiece && neighborPiece->bug != Bug::Mosquito) {
-                int bugTypeIdx = static_cast<int>(neighborPiece->bug);
+            if (neighborPiece) {
+                Bug targetBug = neighborPiece->bug;
+
+                // Mathematical correction for Mosquito elevation mirroring
+                if (targetBug == Bug::Mosquito) {
+                    if (board.height(n) > 1) {
+                        targetBug = Bug::Beetle; // Elevated Mosquito acts as a Beetle
+                    } else {
+                        continue; // Ground-level Mosquito provides no movement capabilities
+                    }
+                }
+
+                int bugTypeIdx = static_cast<int>(targetBug);
 
                 // If we have not already copied this bug's movement type
                 if (!copiedBehaviors[bugTypeIdx]) {
