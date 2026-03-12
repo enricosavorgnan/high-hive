@@ -179,4 +179,108 @@ namespace Hive {
         std::cout << "ok\n";
     }
 
+
+    // ----- UHP Board Implementation -----
+    void UhpBoard::clear() {
+        stacks.clear();
+        piecePos.clear();
+    }
+
+    bool UhpBoard::occupied(const Coord& coord) const {
+        auto it = stacks.find(coord);
+        return it != stacks.end() && !it->second.empty();
+    }
+
+    std::optional<std::string> UhpBoard::topName(const Coord& c) const {
+        auto it = stacks.find(c);
+        if (it == stacks.end() || it->second.empty()) return std::nullopt;
+        return it->second.back();
+    }
+
+    bool UhpBoard::hasPiece(const std::string& pieceName) const {
+        return piecePos.find(pieceName) != piecePos.end();
+    }
+
+    std::optional<Coord> UhpBoard::whereIs(const std::string& pieceName) const {
+        auto it = piecePos.find(pieceName);
+        if (it == piecePos.end()) return std::nullopt;
+        return it->second;
+    }
+
+    void UhpBoard::push(const Coord& to, const std::string& pieceName) {
+        stacks[to].push_back(pieceName);
+        piecePos[pieceName] = to;
+    }
+
+    std::optional<std::string> UhpBoard::pop(const Coord& from) {
+        auto it = stacks.find(from);
+        if (it == stacks.end() || it->second.empty()) return std::nullopt;
+
+        std::string pieceName = it->second.back();
+        it->second.pop_back();
+        if (it->second.empty()) stacks.erase(it);
+
+        piecePos.erase(pieceName);
+        return pieceName;
+    }
+
+    bool UhpBoard::moveTop(const Coord& from, const Coord& to) {
+        auto it = stacks.find(from);
+        if (it == stacks.end() || it->second.empty()) return false;
+
+        std::string pieceName = it->second.back();
+        it->second.pop_back();
+        if (it->second.empty()) stacks.erase(it);
+
+        stacks[to].push_back(pieceName);
+        piecePos[pieceName] = to;
+        return true;
+    }
+
+    int UhpBoard::maxIndexForBug(Bug bug) {
+        switch (bug) {
+            case Bug::Queen: return 1;
+            case Bug::Beetle: return 2;
+            case Bug::Spider: return 2;
+            case Bug::Grasshopper: return 3;
+            case Bug::Ant: return 3;
+            case Bug::Ladybug: return 1;
+            case Bug::Mosquito: return 1;
+            case Bug::Pillbug: return 1;
+            default: return 1;
+        }
+    }
+
+    std::string UhpBoard::basePieceString(Color c, Bug b) {
+        char col = (c == Color::White) ? 'w' : 'b';
+        char letter = '?';
+        switch (b) {
+            case Bug::Queen: letter = 'Q'; break;
+            case Bug::Beetle: letter = 'B'; break;
+            case Bug::Spider: letter = 'S'; break;
+            case Bug::Grasshopper: letter = 'G'; break;
+            case Bug::Ant: letter = 'A'; break;
+            case Bug::Ladybug: letter = 'L'; break;
+            case Bug::Mosquito: letter = 'M'; break;
+            case Bug::Pillbug: letter = 'P'; break;
+        }
+        return std::string{col, letter};
+    }
+
+    std::string UhpBoard::nextPieceName(Color c, Bug b) const {
+        int maxIdx = maxIndexForBug(b);
+        std::string baseName = basePieceString(c, b);
+
+        if (maxIdx == 1) return baseName; // Unique pieces don't get numbers (e.g., "wQ", not "wQ1")
+
+        // Find the lowest unused integer for multiple pieces (e.g., "wA1", "wA2", "wA3")
+        for (int idx = 1; idx <= maxIdx; ++idx) {
+            std::string name = baseName + std::to_string(idx);
+            if (!hasPiece(name)) return name;
+        }
+        return baseName + std::to_string(maxIdx); // Safe fallback
+    }
+
+
+
 } // namespace Hive
