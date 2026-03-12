@@ -43,6 +43,8 @@ namespace Hive {
             // Second move of the game: must touch the first piece
             auto neighbors = coordNeighbors(occupied[0]);
             validCoords.assign(neighbors.begin(), neighbors.end());
+        } else if (ply < 2) {
+            std::erase_if(availablePieces, [](const Piece& piece) { return piece.bug == Bug::Queen; });
         }
         else {
             // Standard placements: must touch own color, must NOT touch opponent color
