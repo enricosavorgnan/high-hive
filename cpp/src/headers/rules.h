@@ -6,8 +6,6 @@
 
 // RULES DECLARATION
 // The file declares the methods for retrieving the possible moves
-// TODO: Implement generateMoves, generatePlacements, generateMovements
-// TODO: Improve function declaration and description here in the header
 
 namespace Hive {
 

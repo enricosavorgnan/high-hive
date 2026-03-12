@@ -6,6 +6,7 @@
 
 #include <unordered_set>
 #include <deque>
+#include <optional>
 #include <algorithm>
 
 // This header declares the structure Move and the bugs moves.

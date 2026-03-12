@@ -94,25 +94,25 @@ namespace Hive {
             const Piece* topPiece = board.top(origin);
             if (!topPiece || topPiece->color != player) continue;
 
-            // O(1) mathematical One-Hive validation
-            if (!RuleEngine::canLiftPiece(board, origin, articulationPoints)) continue;
-
             std::vector<Coord> normalTargets;
             std::vector<std::pair<Coord, Coord>> dragTargets;
 
-            switch (topPiece->bug) {
-                case Bug::Queen:       Moves::getQueenMoves(board, origin, normalTargets); break;
-                case Bug::Beetle:      Moves::getBeetleMoves(board, origin, normalTargets); break;
-                case Bug::Spider:      Moves::getSpiderMoves(board, origin, normalTargets); break;
-                case Bug::Grasshopper: Moves::getGrasshopperMoves(board, origin, normalTargets); break;
-                case Bug::Ant:         Moves::getAntMoves(board, origin, normalTargets); break;
-                case Bug::Ladybug:     Moves::getLadybugMoves(board, origin, normalTargets); break;
-                case Bug::Pillbug:
-                    Moves::getPillbugMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
-                    break;
-                case Bug::Mosquito:
-                    Moves::getMosquitoMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
-                    break;
+            // O(1) mathematical One-Hive validation
+            if (RuleEngine::canLiftPiece(board, origin, articulationPoints)) {
+                switch (topPiece->bug) {
+                    case Bug::Queen:       Moves::getQueenMoves(board, origin, normalTargets); break;
+                    case Bug::Beetle:      Moves::getBeetleMoves(board, origin, normalTargets); break;
+                    case Bug::Spider:      Moves::getSpiderMoves(board, origin, normalTargets); break;
+                    case Bug::Grasshopper: Moves::getGrasshopperMoves(board, origin, normalTargets); break;
+                    case Bug::Ant:         Moves::getAntMoves(board, origin, normalTargets); break;
+                    case Bug::Ladybug:     Moves::getLadybugMoves(board, origin, normalTargets); break;
+                    case Bug::Pillbug:     break;
+                    case Bug::Mosquito:    Moves::getMosquitoMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints); break;
+                }
+            }
+
+            if (topPiece->bug == Bug::Pillbug) {
+                Moves::getPillbugMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
             }
 
             for (const Coord& target : normalTargets) {

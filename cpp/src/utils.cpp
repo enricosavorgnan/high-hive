@@ -214,9 +214,11 @@ namespace Hive
         return *refCoordOpt + dirFromUhpIndicator(isPrefix, ind);
     }
 
-    std::string UhpCodec::destToRelativeToken(const Coord& dest) const {
+    std::string UhpCodec::destToRelativeToken(const Coord& dest, std::optional<Coord> ignoreOrigin) const {
         auto neighbors = coordNeighbors(dest);
         for (const Coord& refCoord : neighbors) {
+            if (ignoreOrigin.has_value() && refCoord == *ignoreOrigin) continue;
+
             auto refNameOpt = uhpBoard.topName(refCoord);
             if (!refNameOpt) continue;
 
@@ -267,7 +269,7 @@ namespace Hive
         if (m.type == Move::Place) {
             const std::string pieceName = uhpBoard.nextPieceName(m.piece.color, m.piece.bug);
             if (state.board().occupiedCoords().empty()) return pieceName;
-            return pieceName + " " + destToRelativeToken(m.to);
+            return pieceName + " " + destToRelativeToken(m.to, std::nullopt);
         }
 
         // Both Move::PieceMove and Move::Drag resolve identically in UHP string space
@@ -281,7 +283,7 @@ namespace Hive
             if (const auto coveredNameOpt = uhpBoard.topName(m.to)) return moverName + " " + *coveredNameOpt;
         }
 
-        return moverName + " " + destToRelativeToken(m.to);
+        return moverName + " " + destToRelativeToken(m.to, m.from);
     }
 
 

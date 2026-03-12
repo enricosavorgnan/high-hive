@@ -1,11 +1,5 @@
 #pragma once
 
-#include <cstdint>
-#include <cstddef>
-
-#include <functional>
-#include <array>
-#include <string>
 #include <string_view>
 
 // PIECES STRUCTURE IMPLEMENTATION

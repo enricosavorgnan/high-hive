@@ -2,7 +2,6 @@
 
 #include <vector>
 #include <string>
-#include <optional>
 #include <unordered_map>
 #include <cassert>
 

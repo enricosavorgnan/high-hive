@@ -9,8 +9,6 @@
 #include "state.h"
 
 namespace Hive {
-    // Set as false for speeding up move insertion
-    inline bool VALIDATE = true;
 
     // --- Basic String Utilities ---
     std::string trim(const std::string& s);
@@ -60,7 +58,7 @@ namespace Hive {
         const UhpBoard& uhpBoard;
 
         [[nodiscard]] std::optional<Coord> parseRelativePositionToken(const std::string& tok) const;
-        [[nodiscard]] std::string destToRelativeToken(const Coord& dest) const;
+        [[nodiscard]] std::string destToRelativeToken(const Coord& dest, std::optional<Coord> ignoreOrigin = std::nullopt) const;
 
     public:
         UhpCodec(const State& st, const UhpBoard& uhpboard) : state(st), uhpBoard(uhpboard) {}

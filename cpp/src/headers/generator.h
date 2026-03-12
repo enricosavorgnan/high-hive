@@ -13,7 +13,6 @@ namespace Hive {
             static std::vector<Move> generateMoves(const State& state);
 
         private:
-            // TODO
             static std::vector<Move> generatePlacements(const State& state);
             static std::vector<Move> generateMovements(const State& state);
     };
