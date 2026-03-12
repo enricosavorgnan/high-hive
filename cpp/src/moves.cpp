@@ -44,7 +44,7 @@ namespace Hive::Moves {
         for (const auto& n : neighbors) {
 
             // The 3D slide rule natively handles climbing up, moving on top, and stepping down.
-            if (RuleEngine::canSlide(board, prop, n)) {
+            if (RuleEngine::canSlide(board, prop, n, prop)) {
                 if (RuleEngine::touchesHive(board, n, prop)) {
                     targets.push_back(n);
                 }
@@ -204,7 +204,7 @@ namespace Hive::Moves {
 
         for (const auto& n : neighbors) {
             if (board.empty(n)) {
-                if (RuleEngine::canSlide(board, prop, n) && RuleEngine::touchesHive(board, n, prop)) {
+                if (RuleEngine::canSlide(board, prop, n, prop) && RuleEngine::touchesHive(board, n, prop)) {
                     targets.push_back(n);
                 }
             }

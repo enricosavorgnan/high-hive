@@ -93,6 +93,8 @@ namespace Hive {
         for (const Coord& origin : board.occupiedCoords()) {
             const Piece* topPiece = board.top(origin);
             if (!topPiece || topPiece->color != player) continue;
+            // If the last moved piece belongs to the current player, it means that the opponent's Pillbug dragged it. It is paralyzed.
+            if (state.lastMovedPieceCoord() && origin == *state.lastMovedPieceCoord()) continue;
 
             std::vector<Coord> normalTargets;
             std::vector<std::pair<Coord, Coord>> dragTargets;
