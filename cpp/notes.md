@@ -183,7 +183,23 @@ A method `neighborAdjacent` returns the two adjacent neighbors of two adjacent t
 
 
 ### 3.3 The Engines
+Currently, the engines implemented are the following:
+- `RandomEngine`: randomly chooses a move among a given set of `validMoves`
+
+Notice how the current approach of the engines always consists in chose among a set of given possible moves the "best" one. \
+This implies, e.g., that the best move is currently affected by a (small) overhead since before the call of the valid moves generator is performed. \
+To change this behavior, please modify the `getBestMove` call in `UhpHandler::cmdBestMove` call at line 228 in [uhp.cpp](./src/uhp.cpp#L228). \
+For example, the call at [line 218](./src/uhp.cpp#L218) at the `generateMoves` method can be removed or applied only in certain cases.
+
 #### 3.3.1 The Random Engine
+The `RandomEngine` randomly chooses a move among a list of valid moves.
+
+The method chacaterizing the engine is `RandomEngine::getBestMove`. \
+It accepts a `Board`, a `Color` indicating the current player, a vector containing its `hand` and a vector containing the `validMoves`. \
+Notice how the validity of the moves is never checked.
+The method at first checks whether the `validMoves` is empty or not; if so, it chooses a `Move::Pass` move, filling the move with placeholder tags as `Move.piece.Color = White, Move.piece.Bug = Ant, Move.piece.id = 0, Move.from = {0, 0}, Move.to = {0, 0}` and returns.
+Then, the method simply uses a non-deterministic seed to extract an element from the `validMoves` non-empty vector and returns that element.
+
 
 ### 3.4 The Generator of the moves
 
