@@ -202,6 +202,30 @@ Then, the method simply uses a non-deterministic seed to extract an element from
 
 
 ### 3.4 The Generator of the moves
+This is probably the most delicate file of the bot. \
+It implements the methods for a class `MoveGenerator`:
+- `generateMoves` : is the only public method. Simply calls `generatePlacements` and `generateMovements`, merges the vectors provided in output by them and returns the merged vector.
+- `generatePlacements` : is a private method that retrieves all the possible valid moves of type `Move::Place` and returns them into a vector, given a `State`.
+- `generateMovements` : is a private method retrieving all the possible valid moves of type `Move::PieceMove` and returns them into a vector, given a `State`.
+
+1. `generatePlacements` \
+   At first, it retrieves the current player, the current player's turn and the current board from `state`. \
+   Calls then `state.getUniqueAvailablePieces` define at line 90 in [state.h](src/headers/state.h#L90), that returns a vector containing all the pieces in the hand of the current player. \
+   The second step consists in checking for the Queen Placement Rule: the queen must be played before the forth turn of each player (i.e. at most at plies 6 and 7), but not at the first turn of each player (i.e. later then plies 1 and 2). \
+   If the total amount of possible pieces to place is null, then the function will return the **empty** `placements` vector. \
+   The forth step consists into retrieving the coordinates where to put the pieces available for placing. This is the longest step of the method:
+   - Check whether the board is empty: if so, then the only valid coordinate `validCoord` is the couple `(0, 0)`.
+   - If the number of occupied cells is 1, then the bot is playing the second move of the game: it is okay to put a piece of the bot's color adjacent to the neighbor's tile.
+   - Finally, if the number of cells is greater than 1, the piece to be placed must touch a bug of its own color: to operate rapidly, an unordered set of coordinates is kept.
+   The last step consists simply in filling each placement element with moves of type `Move::Place`.
+2. `generateMovements` \
+   At first, it retrieves the current player and the current board from `state`. \
+   The second step consists into enforcing the No Queen No Movement rule. \
+   A set of extreme points in the board is then calculated using `RuleEngine::getArticulationPoints` defined at Line 126 of [rules.cpp](src/rules.cpp#126). This is useful for dealing only with bugs that are at the extremes of the board. \
+   If the last moved piece is of the same color of the player, it means that the piece has been moved by an opponent's pillbug.
+   For getting the possible moves, given the piece considered, a method `Moves::get{pieceBug}Moves` is called. Special attention is related tp the pillbug moves that can perform also `Move::Drag` moves. \
+   Each possible `Move::PieceMove` and `Move::Drag` move is then included into the `movements` vector. 
+
 
 ### 3.5 The Moves
 
