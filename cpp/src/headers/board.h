@@ -59,13 +59,13 @@ namespace Hive {
             }
 
             // Get the heighest top in the stack
-            const Piece& top() const {
+            [[nodiscard]] const Piece& top() const {
                 assert(_count > 0);
                 return _data[_count - 1];
             }
 
             // Returns True if val is inside the Cell
-            bool contains(const Piece& val) const{
+            [[nodiscard]] bool contains(const Piece& val) const{
                 for (int i = 0; i<_count; ++i) {
                     if (_data[i] == val) return true;
                 }
@@ -73,11 +73,11 @@ namespace Hive {
             }
 
             // Returns True if the Cell is empty
-            bool empty() const {
+            [[nodiscard]] bool empty() const {
                 return _count == 0;
             }
             // Returns the number of elements in the Cell
-            int size() const {
+            [[nodiscard]] int height() const {
                 return _count;
             }
             // Clear the Cell
@@ -93,10 +93,10 @@ namespace Hive {
             auto end() {
                 return _data.begin() + _count;
             }
-            auto begin() const {
+            [[nodiscard]] auto begin() const {
                 return _data.begin();
             }
-            auto end() const {
+            [[nodiscard]] auto end() const {
                 return _data.begin() + _count;
             }
     };
@@ -172,7 +172,7 @@ namespace Hive {
             
             // Get cell height
             [[nodiscard]] int height (Coord coord) const {
-                return _grid[AxToIndex(coord)].size();
+                return _grid[AxToIndex(coord)].height();
             }
 
             // Is the cell empty

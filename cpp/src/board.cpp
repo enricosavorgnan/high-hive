@@ -19,7 +19,7 @@ namespace Hive {
     }
 
 
-    void BoardAsArray::place (Coord coord, Piece piece) {
+    void BoardAsArray::place (const Coord coord, const Piece piece) {
         int idx = AxToIndex(coord);
 
         if (_grid[idx].empty()) {
@@ -28,7 +28,7 @@ namespace Hive {
         _grid[idx].push(piece);
     }
 
-    Piece BoardAsArray::remove(Coord coord) {
+    Piece BoardAsArray::remove(const Coord coord) {
         const int idx = AxToIndex(coord);
         const Piece piece = _grid[idx].pop();
 
@@ -54,14 +54,14 @@ namespace Hive {
     // ----- !!!!! -----
     // Board as Unordered Map Implementations
     // ----- !!!!! -----
-    void BoardAsUnorderedMap::place(Coord coord, Piece piece) {
+    void BoardAsUnorderedMap::place(const Coord coord, const Piece piece) {
         if (empty(coord)) {
             _occupied_coords.push_back(coord);
         }
         cells_[coord].push_back(piece);
     }
 
-    Piece BoardAsUnorderedMap::remove(Coord coord) {
+    Piece BoardAsUnorderedMap::remove(const Coord coord) {
         auto& st = cells_.at(coord);
         Piece p = st.back();
         st.pop_back();

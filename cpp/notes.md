@@ -104,11 +104,11 @@ The methods implemented are presented in the following.
    : Fills a vector of coordinates with the hexagonal coordinates of the occupied tiles that are neighbors of a tile at a given hexagonal coordinate. 
    The check is performed via a `for` loop.
    - `top`
-   : Returns the top bug in a tile at a given hexagonal coordinate
+   : Returns the top bug in a tile at a given hexagonal coordinate. Calls `CellStack.top()`.
    - `height`
-   : Returns the height of a tile at a given hexagonal coordinate.
+   : Returns the height of a tile at a given hexagonal coordinate. Calls `CellStack.height()`.
    - `empty`
-   : Returns whether a tile at a given hexagonal coordinate has elements inside or not.
+   : Returns whether a tile at a given hexagonal coordinate has elements inside or not. Calls `CellStack.empty()`.
    
 3. Methods for doing operations in the board 
    - `place`
@@ -123,7 +123,43 @@ The methods implemented are presented in the following.
    ! No checks are done regarding the validity of the operation.
 
 
+Notice how it is currently possible for a piece to exit from the grid. It is the case, for example, of limit scenarios in which some bugs move repeatedly among only one direction. \ This, obviously, should not happen. \
+A possible solution can consist into implementing a method that automatically re-centers the Hive once a bug is placed too close to the board. \
+Currently, this is left as a TODO.
+
+
+As already introduced, each tile is a `CellStack`, i.e. a vector with two elements:
+- An array of pieces of dimension `MAX_STACK`, default equal to `6`.
+- A small integer containing the number of elements included in the cell.
+
+Nothing more to add but the methods implemented.
+- `push`, `pop` : Are the classic push operation for inserting an item and classic pop operation for removing an item
+- `top` : Retrieves the top element of the cell
+- `contains` : Returns whether a piece is in the cell stack
+- `empty`: Returns whether the cell contains an element
+- `height` : Returns the number of elements contained by a cell
+- `clear`: Operates an hard reset of the cell
+- `begin` and `end`: Provide iterators for looping on the cell stack.
+
 #### 3.1.2 The Board as a Map
+A slightly different approach consists in define the board as an unordered map.
+The positive aspect of this choice is that there not exists the problem of moving outside the grid; the negative is that cost of finding a piece into the map is a bit slower (despite scaling with $\mathcal{O}(1)$ since the `UnorderedMap` structure is a kind of hash table). \
+Actual gaining in performance need to be tested.
+
+The Unordered Map is implemented wth multiple cells, each one a tuple of elements:
+- `Coord` for the tile coordinate;
+- `UPCellStack` as a stack of pieces;
+- `CoordHash` as a coordinate hashing using Spatial Hashing. 
+Moreover, in a way similar to the one in `BoardAsArray` class, a `_occupied_coords` parameter is implemented.
+
+The methods implemented are clearly similar to the ones of the `BoardAsArray` class:
+- `top` : Returns the piece in top of a tile at a given haxagonal coordinate.
+- `height` : Returns the height of a tile at a given hexagonal coordinate.
+- `empty` : Returns whether a tile at a given hecagonal coordinate is empty or not.
+- `occupiedCoords` : for returning the occupied coordinates in the map, stored in `_occupied_coords`.
+- `getOccupiedNeighbors` : Fills a vector with the neighbors of a cell at given hexagonal coordinate.
+- `place`, `remove`, `move` : similar to the ones in `BoardAsArray` class.
+
 
 ### 3.2 The Coordinates
 
