@@ -8,43 +8,51 @@ namespace Hive {
         const Board& board = state.board();
         int ply = state.getCurrentPlayerTurn();
 
-        // 1. Enforce Queen Placement Rule
+        // 1. Get the list of all the pieces that are in the current player's hand
+        std::vector<Piece> availablePieces = state.getUniqueAvailablePieces(player);
+
+        // 2. Enforce Queen Placement Rule
         // White's 4th turn is ply 6; Black's is ply 7.
         bool mustPlaceQueen = !state.isQueenPlaced(player) &&
                               ((player == Color::White && ply == 6) ||
                                (player == Color::Black && ply == 7));
-
-        std::vector<Piece> availablePieces = state.getUniqueAvailablePieces(player);
+        // If the Queen must be played, the only returned value is the Queen placement
         if (mustPlaceQueen) {
-            // Filter to strictly only the Queen
+            // Filter to strictly return only the Queen
             std::erase_if(availablePieces, [](const Piece& piece) { return piece.bug != Bug::Queen; });
         }
+        if (ply < 2) {
+            std::erase_if(availablePieces, [](const Piece& piece) { return piece.bug == Bug::Queen; });
+        }
 
+        // 3. Check whether the current player's hand is empty
         if (availablePieces.empty()) return placements;
 
-        // 2. Identify Legal Coordinates
+        // 4. Identify Legal Coordinates
         std::vector<Coord> validCoords;
         const auto& occupied = board.occupiedCoords();
 
+        // First move of the game
         if (occupied.empty()) {
-            // First move of the game
             validCoords.push_back(Coord{0, 0});
         }
+        // Second move of the game: must touch the first piece
         else if (occupied.size() == 1) {
-            // Second move of the game: must touch the first piece
             auto neighbors = coordNeighbors(occupied[0]);
             validCoords.assign(neighbors.begin(), neighbors.end());
-        } else if (ply < 2) {
-            std::erase_if(availablePieces, [](const Piece& piece) { return piece.bug == Bug::Queen; });
         }
+        // Standard placements: must touch own color, must NOT touch opponent color
         else {
-            // Standard placements: must touch own color, must NOT touch opponent color
+            std::unordered_set<Coord, CoordHash> evaluatedCoords;;
             for (const Coord& c : occupied) {
+                // If the piece belongs to the current player, its empty neighbors are potential placements
+                const Piece* topPiece = board.top(c);
+                if (!topPiece || topPiece->color != player) continue;
                 for (const Coord& n : coordNeighbors(c)) {
                     if (board.empty(n)) {
                         // Avoid adding duplicates
-                        if (std::ranges::find(validCoords, n) == validCoords.end()) {
-                            if (RuleEngine::touchesColor(board, n, player) && !RuleEngine::touchesColor(board, n, rival(player))) {
+                        if (evaluatedCoords.insert(n).second) {
+                            if (!RuleEngine::touchesColor(board, n, rival(player))) {
                                 validCoords.push_back(n);
                             }
                         }
@@ -53,7 +61,7 @@ namespace Hive {
             }
         }
 
-        // 3. Map to Move Structs
+        // 5. Map to Move Structs
         placements.reserve(availablePieces.size() * validCoords.size());
         for (const Piece& piece : availablePieces) {
             for (const Coord& coord : validCoords) {
@@ -74,7 +82,7 @@ namespace Hive {
         Color player = state.toMove();
         const Board& board = state.board();
 
-        // Hive Core Rule: No piece can move until the Queen is placed
+        // No Queen No Movement Rule
         if (!state.isQueenPlaced(player)) return movements;
 
         movements.reserve(128);
@@ -82,7 +90,7 @@ namespace Hive {
         // Precompute articulation points O(V) once per game node
         std::unordered_set<Coord, CoordHash> articulationPoints = RuleEngine::getArticulationPoints(board);
 
-        // Loop
+        // Loop over the occupied coordinates into the board
         for (const Coord& origin : board.occupiedCoords()) {
             const Piece* topPiece = board.top(origin);
             if (!topPiece || topPiece->color != player) continue;
