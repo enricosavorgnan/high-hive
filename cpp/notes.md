@@ -92,33 +92,35 @@ Since the common matrix is squared, while Hive has hexagonal tiles, actually the
 The methods implemented are presented in the following.
 
 1. Methods for managing the conversion from Hexagonal Coordinate System into the Axial System 
-- `AxToIndex`
-: Given a axial coordinate, i.e. a coordinate in the hexagonal coordinates system, returns the corresponding index in the board array.
-- `isValid`
-: Returns `true` if a given hexagonal coordinate is valid, i.e. its mapping into an Axial Coordinate is valid.
+   - `AxToIndex`
+   : Given a axial coordinate, i.e. a coordinate in the hexagonal coordinates system, returns the corresponding index in the board array.
+   - `isValid`
+   : Returns `true` if a given hexagonal coordinate is valid, i.e. its mapping into an Axial Coordinate is valid.
+   
 2. Methods for quering the content of a tile 
-- `occupiedCoords`
-: Returns the totality of the occupied tiles stored into `_occupied_coords` parameter
-- `getOccupiedNeighbors`
-: Fills a vector of coordinates with the hexagonal coordinates of the occupied tiles that are neighbors of a tile at a given hexagonal coordinate. 
-The check is performed via a `for` loop.
-- `top`
-: Returns the top bug in a tile at a given hexagonal coordinate
-- `height`
-: Returns the height of a tile at a given hexagonal coordinate.
-- `empty`
-: Returns whether a tile at a given hexagonal coordinate has elements inside or not.
-3. Methods for doing operations in the board \
-- `place`
-: Places a given piece in top of a tile at a given hexagonal coordinate. \
-! No checks are done regarding the validity of the operation.
-- `remove`
-: Removes the piece at the top of a tile at a given hexagonal coordinate. \
-! Only one piece for call is removed.
-- `move`
-: Moves the piece at the top of a tile at a given hexagonal coordinate `from` to the top of a tile at a given hexagonal coordinate `to`. \
-Under the hoods the method calls `remove` at first and then method `place`. \
-! No checks are done regarding the validity of the operation.
+   - `occupiedCoords`
+   : Returns the totality of the occupied tiles stored into `_occupied_coords` parameter
+   - `getOccupiedNeighbors`
+   : Fills a vector of coordinates with the hexagonal coordinates of the occupied tiles that are neighbors of a tile at a given hexagonal coordinate. 
+   The check is performed via a `for` loop.
+   - `top`
+   : Returns the top bug in a tile at a given hexagonal coordinate
+   - `height`
+   : Returns the height of a tile at a given hexagonal coordinate.
+   - `empty`
+   : Returns whether a tile at a given hexagonal coordinate has elements inside or not.
+   
+3. Methods for doing operations in the board 
+   - `place`
+   : Places a given piece in top of a tile at a given hexagonal coordinate. \
+   ! No checks are done regarding the validity of the operation.
+   - `remove`
+   : Removes the piece at the top of a tile at a given hexagonal coordinate. \
+   ! Only one piece for call is removed.
+   - `move`
+   : Moves the piece at the top of a tile at a given hexagonal coordinate `from` to the top of a tile at a given hexagonal coordinate `to`. \
+   Under the hoods the method calls `remove` at first and then method `place`. \
+   ! No checks are done regarding the validity of the operation.
 
 
 #### 3.1.2 The Board as a Map
