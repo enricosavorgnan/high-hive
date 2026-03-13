@@ -6,6 +6,19 @@ namespace Hive {
     // ----- !!!!! -----
     // Board as Array Implementations
     // ----- !!!!! -----
+    void BoardAsArray::getOccupiedNeighbors(const Coord coord, std::vector<Coord>& out) const {
+        out.clear();
+        const int centerIdx = AxToIndex(coord);
+
+        for (int i = 0; i < 6; ++i) {
+            const int neighborIdx = centerIdx + NEIGHBORS[i];
+            if (!_grid[neighborIdx].empty()) {
+                out.push_back(coord + DIRECTIONS[i]);
+            }
+        }
+    }
+
+
     void BoardAsArray::place (Coord coord, Piece piece) {
         int idx = AxToIndex(coord);
 
@@ -36,17 +49,6 @@ namespace Hive {
         place(to, piece);
     }
 
-    void BoardAsArray::getOccupiedNeighbors(const Coord coord, std::vector<Coord>& out) const {
-        out.clear();
-        const int centerIdx = AxToIndex(coord);
-
-        for (int i = 0; i < 6; ++i) {
-            const int neighborIdx = centerIdx + NEIGHBORS[i];
-            if (!_grid[neighborIdx].empty()) {
-                out.push_back(coord + DIRECTIONS[i]);
-            }
-        }
-    }
 
 
     // ----- !!!!! -----

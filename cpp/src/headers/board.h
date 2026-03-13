@@ -141,12 +141,12 @@ namespace Hive {
 
 
             // ----- Coordinates Math -----
-            [[nodiscard]] static inline int AxToIndex(Coord coord) {
+            [[nodiscard]] static int AxToIndex(Coord coord) {
                 assert(isValid(coord) && "Axial Coordinate is not valid");
                 return (coord.r + BOARD_OFFSET) * BOARD_DIM  + (coord.q + BOARD_OFFSET);
             }
 
-            [[nodiscard]] static inline bool isValid(Coord coord) {
+            [[nodiscard]] static bool isValid(Coord coord) {
                 int q = coord.q + BOARD_OFFSET;
                 int r = coord.r + BOARD_OFFSET;
                 return q >= 0 && q < BOARD_DIM && r >= 0 && r < BOARD_DIM;
@@ -154,26 +154,29 @@ namespace Hive {
 
 
             // ----- Queries -----
-            
+
+            // Get occupied cells
+            [[nodiscard]] const std::vector<Coord>& occupiedCoords() const {
+                    return _occupied_coords;
+            }
+
+            // Retrieve all the occupied cells neighbor to a given coordinate
+            void getOccupiedNeighbors(Coord coord, std::vector<Coord>& out) const;
+
             // Get top piece over a given Coordinate
-            const Piece* top(const Coord coord) const{
+            [[nodiscard]] const Piece* top(const Coord coord) const{
                 const Cell& idx = _grid[AxToIndex(coord)];
                 if (idx.empty()) return nullptr;
                 return &idx.top();
             }
-
-            // Get occupied cells 
-            const std::vector<Coord>& occupiedCoords() const {
-                return _occupied_coords;
-            }
             
             // Get cell height
-            int height (Coord coord) const {
+            [[nodiscard]] int height (Coord coord) const {
                 return _grid[AxToIndex(coord)].size();
             }
 
             // Is the cell empty
-            bool empty(Coord coord) const {
+            [[nodiscard]] bool empty(Coord coord) const {
                 return _grid[AxToIndex(coord)].empty();
             }
 
@@ -185,9 +188,6 @@ namespace Hive {
             Piece remove(Coord coord);
 
             void move(Coord from, Coord to);
-
-            // Retrieve all the occupied cells neighbor to a given coordinate
-            void getOccupiedNeighbors(Coord coord, std::vector<Coord>& out) const;
     };
 
 
