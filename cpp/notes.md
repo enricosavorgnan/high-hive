@@ -228,6 +228,19 @@ It implements the methods for a class `MoveGenerator`:
 
 
 ### 3.5 The Moves
+The file `moves.cpp` presents all the possible pieces moves.
+
+1. `Ant` : a BFS is performed.
+2. `Beetle` : the beetle can move on top of a neighbor tile if its height is equal to the height of the tile.
+3. `Grassopher` : can move following only one direction.
+4. `Ladybug` : moves 2 tiles on top of another piece and one down into an empty space.
+5. `Mosquito` : acts as its neighbors. some rules are applied:
+   - If mosquito is on top of the hive, it acts as a beetle
+   - If a mosquito touches a mosquito are at the same level, the bug has no movement capabilities
+   Since pieces like Beetles and Queens can provide the same targets, memory is then check and deduplicated.
+6. `Pillbug` : pillbug can both move and drag other pieces. Regarding the moves, the function called is `getQueenMoves` being the same idea; regarding pillbug drags, the method finds valid pieces to drag (i.e. the neighbor has not just moved and can actually move), find the valid spots, and finally apply a cartesian combination `{validPieces x validDestinations}`
+7. `Queen` : Simply moves in a valid neighbor cell
+8. `Spider` : Goes 3 steps into DFS.
 
 ### 3.6 The Pieces
 

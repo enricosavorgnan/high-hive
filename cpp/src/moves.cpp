@@ -16,6 +16,7 @@ namespace Hive::Moves {
         visited.insert(prop);
         queue.push_back(prop);
 
+        // BFS
         while (!queue.empty()) {
             Coord curr = queue.front();
             queue.pop_front();
@@ -73,10 +74,12 @@ namespace Hive::Moves {
             return board.height(c) - (c == prop ? 1 : 0);
         };
 
+        // Step 1
         std::vector<Coord> step1;
         for (const auto& n : coordNeighbors(prop)) {
             if (vHeight(n)>0 && RuleEngine::canSlide(board, prop, n, prop)) step1.push_back(n);
         }
+
 
         std::vector<Coord> step2;
         for (const auto& s1 : step1) {
@@ -101,6 +104,7 @@ namespace Hive::Moves {
 
 
     void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints) {
+        // Mosquito on top of the hive: acts as a beetle
         if (board.height(prop) > 1) {
             getBeetleMoves(board, prop, targets);
             return;
@@ -109,20 +113,17 @@ namespace Hive::Moves {
         // Allocate contiguous memory for intermediate accumulation
         std::vector<Coord> tempTargets;
         tempTargets.reserve(64); // Pre-allocate to prevent dynamic resizing overhead
-
-        // A lightweight array to track which bug behaviors have already been copied.
-        // This prevents running getAntMoves() multiple times if touching multiple Ants.
-        bool copiedBehaviors[8] = {false};
-
         auto neighbors = coordNeighbors(prop);
 
-        for (const auto& n : neighbors) {
-            const Piece* neighborPiece = board.top(n);
+        // Array to prevent running getAntMoves() multiple times if touching multiple Ants.
+        bool copiedBehaviors[8] = {false};
 
-            if (neighborPiece) {
+        // Loop over the 6 neighbors
+        for (const auto& n : neighbors) {
+            if (const Piece* neighborPiece = board.top(n)) {
                 Bug targetBug = neighborPiece->bug;
 
-                // Mathematical correction for Mosquito elevation mirroring
+                // Mosquito touching mosquito rule
                 if (targetBug == Bug::Mosquito) {
                     if (board.height(n) > 1) {
                         targetBug = Bug::Beetle; // Elevated Mosquito acts as a Beetle
@@ -132,7 +133,6 @@ namespace Hive::Moves {
                 }
 
                 int bugTypeIdx = static_cast<int>(targetBug);
-
                 // If we have not already copied this bug's movement type
                 if (!copiedBehaviors[bugTypeIdx]) {
                     copiedBehaviors[bugTypeIdx] = true;
@@ -153,13 +153,11 @@ namespace Hive::Moves {
 
         if (tempTargets.empty()) return;
 
-        // Cache-friendly coordinate deduplication
-        // (A Beetle and a Queen might yield the exact same adjacent destination)
+        // targets decuplication
         std::ranges::sort(tempTargets, [](const Coord& a, const Coord& b) {
             if (a.q != b.q) return a.q < b.q;
             return a.r < b.r;
         });
-
         tempTargets.erase(std::unique(tempTargets.begin(), tempTargets.end()), tempTargets.end());
 
         // Transfer unique coordinates to the main output buffer
@@ -173,13 +171,13 @@ namespace Hive::Moves {
         std::array<Coord, 6> neighbors = coordNeighbors(prop);
 
         // Phase 1. Find valid pieces to drag
-        for (const auto& src: neighbors) {
-            if (board.empty(src)) continue;
-            if (board.height(src) > 1) continue;
-            if (lastMovedPieceCoord && src == *lastMovedPieceCoord) continue;
-            if (!RuleEngine::canLiftPiece(board, src, articulationPoints)) continue;
-            if (!RuleEngine::canSlide(board, src, prop, src)) continue;
-            validSources.push_back(src);
+        for (const auto& neighbor: neighbors) {
+            if (board.empty(neighbor)) continue;
+            if (board.height(neighbor) > 1) continue;
+            if (lastMovedPieceCoord && neighbor == *lastMovedPieceCoord) continue;
+            if (!RuleEngine::canLiftPiece(board, neighbor, articulationPoints)) continue;
+            if (!RuleEngine::canSlide(board, neighbor, prop, neighbor)) continue;
+            validSources.push_back(neighbor);
         }
 
         // Phase 2. Find valid spots
