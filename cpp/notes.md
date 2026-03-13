@@ -113,14 +113,14 @@ The methods implemented are presented in the following.
 3. Methods for doing operations in the board 
    - `place`
    : Places a given piece in top of a tile at a given hexagonal coordinate. \
-   ! No checks are done regarding the validity of the operation.
+      ! No checks are done regarding the validity of the operation.
    - `remove`
    : Removes the piece at the top of a tile at a given hexagonal coordinate. \
-   ! Only one piece for call is removed.
+      ! Only one piece for call is removed.
    - `move`
    : Moves the piece at the top of a tile at a given hexagonal coordinate `from` to the top of a tile at a given hexagonal coordinate `to`. \
    Under the hoods the method calls `remove` at first and then method `place`. \
-   ! No checks are done regarding the validity of the operation.
+      ! No checks are done regarding the validity of the operation.
 
 
 Notice how it is currently possible for a piece to exit from the grid. It is the case, for example, of limit scenarios in which some bugs move repeatedly among only one direction. \ This, obviously, should not happen. \
@@ -162,6 +162,25 @@ The methods implemented are clearly similar to the ones of the `BoardAsArray` cl
 
 
 ### 3.2 The Coordinates
+The choosen hexagonal coordinate system is implemented into `coords.h` file. \
+It consists of three coordinates `(q, r, s)`, one for each of the axis of an hexagon. Since the sum of the coordinates presented is always 1, the `s` coordinate can be safely removed.
+
+The relative neighbors of a tile `(q, r)` are defined as follows:
+```text
+(0, -1)      /      \    (+1, -1)
+(-1, 0)     | (q, r) |   (+1, 0)
+(-1, +1)     \      /    (0, +1)
+```
+
+Regarding the implementation, each type `Coord` consists of a pair of `int32` elements `(q, r)`. \
+The operators `==`, `!=`, `+`, `-` are defined. \
+A *Spatial Hashing* method `CoordHash` is implemented for saving hashed version of the coordinates. This methodis used by `coordHash` elements into `BoardAsUnorderedMap` board implementation.
+
+The directions are stored clockwise, starting from the `East` direction. This is needed by Mzinga engine for chosing the coordinates when placing a tile.
+
+A method `neighborDirectionIndex` retrives the direction that links two tiles at their given coordinates `a` and `b`. \
+A method `neighborAdjacent` returns the two adjacent neighbors of two adjacent tiles given their two coordinates `a` and `b`. 
+
 
 ### 3.3 The Engines
 #### 3.3.1 The Random Engine
