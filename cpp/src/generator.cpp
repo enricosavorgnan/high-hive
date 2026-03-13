@@ -2,15 +2,6 @@
 
 namespace Hive {
 
-    bool touchesColor(const Board& board, Coord target, Color color) {
-        for (const Coord& n : coordNeighbors(target)) {
-            const Piece* touch  = board.top(n);
-            if (touch && touch->color == color) return true;
-        }
-        return false;
-    }
-
-
     std::vector<Move> MoveGenerator::generatePlacements(const State& state) {
         std::vector<Move> placements;
         Color player = state.toMove();
@@ -53,7 +44,7 @@ namespace Hive {
                     if (board.empty(n)) {
                         // Avoid adding duplicates
                         if (std::ranges::find(validCoords, n) == validCoords.end()) {
-                            if (touchesColor(board, n, player) && !touchesColor(board, n, rival(player))) {
+                            if (RuleEngine::touchesColor(board, n, player) && !RuleEngine::touchesColor(board, n, rival(player))) {
                                 validCoords.push_back(n);
                             }
                         }

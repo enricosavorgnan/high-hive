@@ -1,6 +1,7 @@
 #include "headers/rules.h"
 #include <bitset>
 #include <array>
+#include <functional>
 
 namespace Hive{
 
@@ -18,6 +19,16 @@ namespace Hive{
         }
         return false;
     }
+
+
+    bool RuleEngine::touchesColor(const Board& board, Coord target, Color color) {
+        for (const Coord& n : coordNeighbors(target)) {
+            const Piece* touch  = board.top(n);
+            if (touch && touch->color == color) return true;
+        }
+        return false;
+    }
+
 
     bool RuleEngine::canSlide(const Board& board, Coord from, Coord to, std::optional<Coord> ignoreProp) {
         // Retrieve the two common adjacent hexagonal "gates" between 'from' and 'to'

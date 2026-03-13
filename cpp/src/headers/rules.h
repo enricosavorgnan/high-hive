@@ -15,6 +15,8 @@ namespace Hive {
             // Returns True if the move is valid, otherwise False
             static bool canSlide(const Board& board, Coord from, Coord to, std::optional<Coord> ignoreProp = std::nullopt);
 
+            static bool touchesColor(const Board& board, Coord target, Color color);
+
             // The method defines whether the move from exclude coordinate to target coordinates does not break the One Hive Rule,
             // leaving the piece in target coordinate far from other pieces.
             static bool touchesHive(const Board& board, Coord target, Coord exclude);
