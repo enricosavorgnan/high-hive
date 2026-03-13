@@ -48,6 +48,7 @@ struct Undo {
   int prevPlyBlack{0};
   bool prevWhiteQueenPlaced{false};
   bool prevBlackQueenPlaced{false};
+  std::optional<Coord> prevLastMovedTo; //dove si trovava l'ultimo pezzo mosso prima di questa apply()
 
   //per Place: quale pezzo era stato piazzato (così ripristini il contatore)
   std::optional<Piece> placedPiece;
@@ -70,6 +71,10 @@ public:
 
   bool queenPlaced(Color c) const { return (c == Color::White) ? whiteQueenPlaced_ : blackQueenPlaced_; }
 
+  // Coordinata dell'ultimo pezzo mosso (serve per la regola del pillbug: non può draggare se si è mosso prima
+  // un pezzo che è stato mosso nel turno precedente). Se std::nullopt, significa "nessuna mossa precedente".
+  const std::optional<Coord>& lastMovedTo() const { return lastMovedTo_; }
+
   int remaining(Color c, Bug b) const { return hands_[colorIndex(c)][bugIndex(b)]; }
 
   bool hasInHand(Color c, Bug b) const { return remaining(c, b) > 0; }
@@ -85,6 +90,7 @@ public:
     u.prevPlyBlack = plyBlack_;
     u.prevWhiteQueenPlaced = whiteQueenPlaced_;
     u.prevBlackQueenPlaced = blackQueenPlaced_;
+    u.prevLastMovedTo = lastMovedTo_;
 
     //dopo aver salvato, la applica
     if (m.kind == MoveKind::Resign) {
@@ -102,16 +108,31 @@ public:
       // piazza sul board
       board_.push(dest, p);
 
+      // aggiorna ultimo pezzo mosso (per la regola pillbug)
+      lastMovedTo_ = dest;
+
       // aggiorna "queen placed"
       if (p.bug == Bug::Queen) {
         if (p.color == Color::White) whiteQueenPlaced_ = true;
         else blackQueenPlaced_ = true;
       }
-    } 
-    else {// MoveKind::Move
+    }
+    else if (m.kind == MoveKind::Move) {
       const Coord src  = m.from.value();
       const Coord dest = m.to.value();
       board_.moveTop(src, dest);
+
+      // aggiorna ultimo pezzo mosso
+      lastMovedTo_ = dest;
+    }
+    else { // MoveKind::Drag
+      const Coord src  = m.from.value();
+      const Coord dest = m.to.value();
+      // la coordinata del pillbug è solo informativa nella mossa, la board sposta comunque top(src)
+      board_.moveTop(src, dest);
+
+      // aggiorna ultimo pezzo mosso (il pezzo trascinato)
+      lastMovedTo_ = dest;
     }
 
     // aggiorna ply e turno
@@ -130,6 +151,7 @@ public:
     plyBlack_ = u.prevPlyBlack;
     whiteQueenPlaced_ = u.prevWhiteQueenPlaced;
     blackQueenPlaced_ = u.prevBlackQueenPlaced;
+    lastMovedTo_ = u.prevLastMovedTo;
 
     const Move& m = u.move;
 
@@ -146,10 +168,16 @@ public:
       const Piece p = u.placedPiece.value();
       hands_[colorIndex(p.color)][bugIndex(p.bug)] += 1;
     } 
-    else {// Move
+    else if (m.kind == MoveKind::Move) {
       const Coord src  = m.from.value();
       const Coord dest = m.to.value();
       // la pedina mossa è ora in cima a dest, riportala indietro
+      board_.moveTop(dest, src);
+    }
+    else { // Drag
+      const Coord src  = m.from.value();
+      const Coord dest = m.to.value();
+      // il pezzo trascinato è ora in cima a dest, riportalo indietro
       board_.moveTop(dest, src);
     }
   }
@@ -172,6 +200,9 @@ private:
   //per queen rule
   bool whiteQueenPlaced_{false};
   bool blackQueenPlaced_{false};
+
+  // per regola pillbug: dove sta l'ultimo pezzo mosso
+  std::optional<Coord> lastMovedTo_;
 };
 
 } // namespace hive::core

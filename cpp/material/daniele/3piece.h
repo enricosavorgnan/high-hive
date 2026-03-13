@@ -11,6 +11,7 @@ enum class Color : std::uint8_t { White, Black };
 constexpr Color other(Color c) {
   return (c == Color::White) ? Color::Black : Color::White;
 }
+  // rival in pieces.h
 
 // Base set + espansioni
 enum class Bug : std::uint8_t {

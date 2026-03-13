@@ -1,14 +1,19 @@
 #include "headers/uhp.h"
 #include <iostream>
-#include <thread>
 #include <chrono>
 #include <random>
+
+#include "generator.h"
 
 namespace Hive {
 
     void UhpHandler::loop() {
         std::string line;
         while (std::getline(std::cin, line)) {
+            if (!line.empty() && line.back() == '\r') {
+                line.pop_back();
+            }
+
             if (line.empty()) continue;
 
             std::vector<std::string> chunks = splitCommand(line);
@@ -16,36 +21,16 @@ namespace Hive {
 
             const std::string& cmd = chunks[0];
 
-            if (cmd == "u1") {
-                cmdU1();
-            }
-            else if (cmd == "info") {
-                cmdInfo();
-            }
-            else if (cmd == "newgame") {
-                cmdNewGame(chunks, line);
-            }
-            else if (cmd == "play") {
-                cmdPlay(chunks, line);
-            }
-            else if (cmd == "pass") {
-                cmdPass();
-            }
-            else if (cmd == "validmoves") {
-                cmdValidMoves();
-            }
-            else if (cmd == "bestmove") {
-                cmdBestMove(chunks);
-            }
-            else if (cmd == "undo") {
-                cmdUndo();
-            }
-            else if (cmd == "options") {
-                cmdOptions();
-            }
-            else if (cmd == "exit") {
-                break;
-            }
+            if (cmd == "u1") cmdU1();
+            else if (cmd == "info") cmdInfo();
+            else if (cmd == "newgame") cmdNewGame(chunks, line);
+            else if (cmd == "play") cmdPlay(chunks, line);
+            else if (cmd == "pass") cmdPass();
+            else if (cmd == "validmoves") cmdValidMoves();
+            else if (cmd == "bestmove") cmdBestMove(chunks);
+            else if (cmd == "undo") cmdUndo();
+            else if (cmd == "options") cmdOptions();
+            else if (cmd == "exit") break;
 
             // Guarantee buffer flush to MZinga
             std::cout << std::flush;
@@ -54,87 +39,121 @@ namespace Hive {
 
     // --- State Generators ---
 
-    std::vector<Piece> UhpHandler::getHand(Color player) const {
-        std::vector<Piece> startingHand = {
-            {player, Bug::Queen, 1},
-            {player, Bug::Spider, 1}, {player, Bug::Spider, 2},
-            {player, Bug::Beetle, 1}, {player, Bug::Beetle, 2},
-            {player, Bug::Grasshopper, 1}, {player, Bug::Grasshopper, 2}, {player, Bug::Grasshopper, 3},
-            {player, Bug::Ant, 1}, {player, Bug::Ant, 2}, {player, Bug::Ant, 3},
-            {player, Bug::Mosquito, 1},
-            {player, Bug::Ladybug, 1},
-            {player, Bug::Pillbug, 1}
-        };
-
-        std::vector<Piece> currentHand;
-        Coord dummy;
-        for (const auto& p : startingHand) {
-            // Only add to hand if it is NOT found on the board
-            if (!findPieceOnBoard(board, p, dummy)) {
-                currentHand.push_back(p);
-            }
-        }
-        return currentHand;
-    }
-
     std::string UhpHandler::generateGameString() const {
+        // Get the current turn number from state.
+        int turnNumber = (state.getCurrentPlayerTurn() / 2) +1; // State only saves the number of turns played IN TOTAL
         std::string s = gameType + ";" + gameState + ";" +
-                        (turnPlayer == Color::White ? "White" : "Black") +
+                        (state.toMove() == Color::White ? "White" : "Black") +
                         "[" + std::to_string(turnNumber) + "]";
-        for (const auto& m : moveHistory) {
-            s += ";" + m;
-        }
+
+        for (const auto& m : moveHistory) s += ";" + m;
+
         return s;
     }
 
-    void UhpHandler::applyMove(const std::string&moveStr) {
-        // 1. Parse string to move object
-        Move move = StringToMove(moveStr, board);
+    bool UhpHandler::applyMove(const std::string& moveStr, bool validate) {
+        UhpCodec codec(state, uhpBoard);
+        auto pr0pt = codec.parseUhpRequest(moveStr);
 
-        // 2. Apply to board memory
-        if (move.type == Move::Place) {
-            board.place(move.to, move.piece);
-        } else if (move.type == Move::PieceMove) {
-            board.move(move.from, move.to);
+        if (!pr0pt) return false;
+        const auto& pr = *pr0pt;
+
+        // 1. Handle Passing
+        if (pr.isPass) {
+            if (validate) {
+                auto moves = MoveGenerator::generateMoves(state);
+                // Passing is mathematically illegal if any physical moves exist
+                if (!moves.empty() && !(moves.size() == 1 && moves[0].type == Move::Pass)) {
+                    return false;
+                }
+            }
+            Move passMove;
+            passMove.type = Move::Pass;
+            state.applyMove(passMove);
+            moveHistory.push_back("pass");
+            gameState = "InProgress";
+            return true;
         }
 
-        // 3. Update internal state
+        if (!pr.dest || !pr.parsedPiece) return false;
+        const Coord dest = *pr.dest;
+        const ParsedPieceName pp = *pr.parsedPiece;
+
+
+        // 2. Generate the Game Tree Node to find the Semantic Match
+        auto moves = MoveGenerator::generateMoves(state);
+        std::optional<Move> chosenMove = std::nullopt;
+
+        auto fromOpt = uhpBoard.whereIs(pr.pieceName);
+        if (!fromOpt) {
+            // The piece is not on the board yet, so this must be a Placement intent
+            for (const auto& mv : moves) {
+                if (mv.type != Move::Place) continue;
+                if (mv.piece.color != pp.color) continue;
+                if (mv.piece.bug != pp.bug) continue;
+                if (mv.to != dest) continue; // Ensure the geometric vector matches
+
+                chosenMove = mv;
+                break;
+            }
+        } else {
+            // The piece is on the board, so this must be a Movement or Drag intent
+            Coord from = *fromOpt;
+            auto topName = uhpBoard.topName(from);
+
+            // UHP strictly requires moving the piece that is physically on top of the stack
+            if (!topName || *topName != pr.pieceName) return false;
+
+            for (const auto& mv : moves) {
+                if (mv.type == Move::Place || mv.type == Move::Pass) continue;
+                if (mv.from != from) continue;
+                if (mv.to != dest) continue;
+
+                // We found the exact move. If this was a Drag, mv now contains the orchestrator data.
+                chosenMove = mv;
+                break;
+            }
+        }
+
+        if (!chosenMove) {
+            // The opponent bot sent an illegal move (or a desync occurred)
+            return false;
+        }
+
+        // 3. Commit the Validated Move to both memory structures
+        const Move cm = *chosenMove;
+        state.applyMove(cm); // Updates the physical mathematical grid
+        if (cm.type == Move::Place) {
+            uhpBoard.push(cm.to, pr.pieceName); // Updates the text layer mapping
+        } else {
+            uhpBoard.moveTop(cm.from, cm.to);
+        }
         moveHistory.push_back(moveStr);
         gameState = "InProgress";
-
-        if (turnPlayer == Color::Black) {
-            turnNumber++;
-            turnPlayer = Color::White;
-        } else {
-            turnPlayer = Color::Black;
-        }
+        return true;
     }
 
     // ----- Command Handlers -----
 
-    void UhpHandler::cmdU1() {
-        std::cout << "ok\n";
-    }
+    void UhpHandler::cmdU1() { std::cout << "ok\n"; }
 
     void UhpHandler::cmdInfo() {
         std::cout << "id high-hive-engine v0.1\n";
-        std::cout << "Mosquito;Ladybug;Pillbug;\n";
+        std::cout << "Mosquito;Ladybug;Pillbug\n";
         std::cout << "ok\n";
     }
 
 
     void UhpHandler::cmdNewGame(const std::vector<std::string>& chunks, const std::string& line) {
         // Reset state
-        board = Board();
+        state = State();
+        uhpBoard.clear();
         moveHistory.clear();
-        turnNumber = 1;
-        turnPlayer = Color::White;
         gameState = "NotStarted";
 
         // Parse optional GameString
         if (chunks.size() > 1) {
             std::string gameString = line.substr(line.find(chunks[1]));
-            std::vector<std::string> gameChunks = splitCommand(gameString); // Splitting by ';' may be needed here based on UHP
 
             // Re-tokenize by ';' to handle strict UHP GameStrings
             std::istringstream stream(gameString);
@@ -146,7 +165,7 @@ namespace Hive {
                 else if (tokenIndex == 1) gameState = token;
                 else if (tokenIndex == 2) { /* Turn string - we infer this from moves applied */ }
                 else {
-                    applyMove(token); // Replay history onto the board
+                    applyMove(token, false); // Replay history onto the board
                 }
                 tokenIndex++;
             }
@@ -161,7 +180,7 @@ namespace Hive {
             // Extract the exact move string avoiding split manipulation errors
             std::string moveStr = line.substr(line.find(chunks[1]));
 
-            applyMove(moveStr);
+            applyMove(moveStr, true);
 
             std::cout << generateGameString() << "\n";
         }
@@ -170,28 +189,22 @@ namespace Hive {
 
     void UhpHandler::cmdPass() {
         // A pass is technically a move in UHP. We apply it directly.
-        moveHistory.push_back("pass");
-
-        if (turnPlayer == Color::Black) {
-            turnNumber++;
-            turnPlayer = Color::White;
-        } else {
-            turnPlayer = Color::Black;
-        }
-
+        applyMove("pass", true);
         std::cout << generateGameString() << "\n";
         std::cout << "ok\n";
     }
 
     void UhpHandler::cmdValidMoves() const {
-        std::vector<Piece> hand = getHand(turnPlayer);
-        std::vector<Move> validMoves = RuleEngine::generateMoves(board, turnPlayer, hand);
+        std::vector<Move> validMoves = MoveGenerator::generateMoves(state);
+        UhpCodec codec(state, uhpBoard); // Utilize the established codec
 
-        if (validMoves.empty()) {
+        if (validMoves.empty() || (validMoves.size() == 1 && validMoves[0].type == Move::Pass)) {
             std::cout << "pass\n";
         } else {
             for (size_t i = 0; i < validMoves.size(); ++i) {
-                std::cout << MoveToString(validMoves[i], board);
+                if (validMoves[i].type == Move::Pass) continue;
+
+                std::cout << codec.moveToUhpString(validMoves[i]); // Strict serialization
                 if (i < validMoves.size() - 1) {
                     std::cout << ";";
                 }
@@ -202,30 +215,48 @@ namespace Hive {
     }
 
     void UhpHandler::cmdBestMove(const std::vector<std::string>& chunks) const {
-        // assume bestmove time 00:00:05
-        std::vector<Piece> hand = getHand(turnPlayer);
-        std::vector<Move> validMoves = RuleEngine::generateMoves(board, turnPlayer, hand);
+        std::vector<Move> validMoves = MoveGenerator::generateMoves(state);
+        UhpCodec codec(state, uhpBoard);
 
-        if (validMoves.empty()) {
+        if (validMoves.empty() || (validMoves.size() == 1 && validMoves[0].type == Move::Pass)) {
             std::cout << "pass\n";
             std::cout << "ok\n";
             return;
         }
 
-        Move bestMove = engine->getBestMove(board, turnPlayer, hand, validMoves);
+        std::vector<Piece> availableHand = state.getUniqueAvailablePieces(state.toMove());
+        Move bestMove = engine->getBestMove(state.board(), state.toMove(), availableHand, validMoves);
 
-        std::cout << MoveToString(bestMove, board) << "\n";
+        std::cout << codec.moveToUhpString(bestMove) << "\n"; // Strict serialization
         std::cout << "ok\n";
     }
 
     void UhpHandler::cmdUndo() {
-        // TODO
+        if (!moveHistory.empty()) {
+            moveHistory.pop_back();
+
+            // Rebuild the mathematical State and textual dictionaries from scratch
+            // to guarantee absolute synchronization.
+            state = State();
+            uhpBoard.clear();
+            gameState = "NotStarted";
+
+            // Temporarily store the history to replay it
+            std::vector<std::string> tempHistory = moveHistory;
+            moveHistory.clear();
+
+            for (const std::string& moveStr : tempHistory) {
+                applyMove(moveStr, false); // Replay without deep tree validation
+            }
+        }
+        std::cout << generateGameString() << "\n";
         std::cout << "ok\n";
     }
 
     void UhpHandler::cmdOptions() {
         // TODO
         // Reserved for engine options
+        std::cout << "ok\n";
     }
 
 } // namespace Hive

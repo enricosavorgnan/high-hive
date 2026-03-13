@@ -6,6 +6,7 @@
 
 #include <unordered_set>
 #include <deque>
+#include <optional>
 #include <algorithm>
 
 // This header declares the structure Move and the bugs moves.
@@ -21,18 +22,16 @@ namespace Hive {
         enum Type{
             Place,
             PieceMove,
-            Pass
+            Pass,
+            Drag
         } type;
-        Piece piece; // for Place
-        Coord from;  // for Move
-        Coord to;    // for Place and Move
+        Piece piece;            // for Place
+        Coord from;             // for Move
+        Coord to;               // for Place and Move
+        Coord pillbug;          // pillbug operating the Drag move
     };
 
     namespace Moves {
-        // The method defines whether the move from exclude coordinate to target coordinates does not break the One Hive Rule,
-        // leaving the piece in target coordinate far from other pieces.
-        static bool touchesHive(const Board& board, Coord target, Coord exclude);
-
         // Ant Move Coordinates
         void getAntMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
         // Beetle Move Coordinates
@@ -41,10 +40,15 @@ namespace Hive {
         void getGrasshopperMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
         // Ladybug Move Coordinates
         void getLadybugMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+
         // Mosquito Move Coordinates
-        void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+        void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints);
+
         // Pillbug Move Coordinates
-        void getPillbugMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
+        void getPillbugMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints);
+        // Pillbug Drag Move Coordinates
+        void getPillbugDragMoves(const Board& board, Coord prop, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints);
+
         // Queen Bee Move Coordinates
         void getQueenMoves(const Board& board, Coord prop, std::vector<Coord>& targets);
         // Spider Move Coordinates

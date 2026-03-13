@@ -2,19 +2,33 @@
 
 #include <vector>
 #include <string>
-#include <optional>
-#include <algorithm>
+#include <unordered_map>
 #include <cassert>
 
 #include "coords.h"
 #include "pieces.h"
 
-// CELL and BOARD IMPLEMENTATION
-// The board is implemented as a 1D array of dimension BOARD_AREA, where each cell is a stack of pieces (CellStack).
-// The CellStack is implemented as a fixed-size array with at most MAX_STACK pieces.
+// ----------------- !!!!!! -----------------
+// Uncomment the following for using Unordered Map as active Board structure
+//
+// #define USE_UNORDERED_MAP_BOARD
+//
+// ----------------- !!!!!! -----------------
+
+
+
 
 
 namespace Hive {
+
+    // The following refers to Board as an Array.
+    // Board as an Unordered is presented at line 197
+
+
+    // CELL and BOARD IMPLEMENTATION
+    // The board is implemented as a 1D array of dimension BOARD_AREA, where each cell is a stack of pieces (CellStack).
+    // The CellStack is implemented as a fixed-size array with at most MAX_STACK pieces.
+
     // Constant values
     constexpr int BOARD_DIM = 64; // should include all the aligned pieces. Actually 55 should work
     constexpr int BOARD_OFFSET = BOARD_DIM / 2; // Offset for dealing with coordinates
@@ -87,14 +101,15 @@ namespace Hive {
             }
     };
 
+
+
+
     // BOARD
     // 1D array of dimension BOARD_AREA
     // The first placed piece gets coordinates (q=0, r=0) --> (q+BOARD_OFFSET, r+BOARD_OFFSET) in the grid, and then "spliced" as follows:
     // (q, r) -> q+BOARD_OFFSET + (r+BOARD_OFFSET)*BOARD_DIM
     // A vector _occuied_cells takes care of all the cells with pieces above
-
-
-    class Board{
+    class BoardAsArray{
         friend class RuleEngine;
         friend class GameState;
 
@@ -121,9 +136,9 @@ namespace Hive {
 
         public:
             // Reserve memory for each of the 28 cells
-            Board() : _grid() {
+            BoardAsArray() {
             _occupied_coords.reserve(32);
-        }
+            }
 
 
             // ----- Coordinates Math -----
@@ -181,4 +196,93 @@ namespace Hive {
             void getOccupiedNeighbors(Coord coord, std::vector<Coord>& out) const;
     };
 
-}
+
+
+    class BoardAsUnorderedMap {
+    public:
+        using Stack = std::vector<Piece>;
+        using UPCellStack = std::vector<Piece>;
+
+    private:
+        std::unordered_map<Coord, UPCellStack, CoordHash> cells_;
+        std::vector<Coord> _occupied_coords;
+
+    public:
+        //l'immagine evocativa è che moralmente è una scacchiera di stack di pezzi
+        //il primo pezzo che abbandona una cella è quello posto più in alto
+        //finchè quello più in alto non si sposta, quelli sotto non si spostano
+
+
+        BoardAsUnorderedMap() {
+            _occupied_coords.reserve(32);
+        }
+
+        // ----- Queries -----
+        const Piece* top(const Coord coord) const {
+            auto it = cells_.find(coord);
+            if (it == cells_.end() || it->second.empty()) return nullptr;
+            return &it->second.back();
+        }
+
+        const std::vector<Coord>& occupiedCoords() const {
+            return _occupied_coords;
+        }
+
+
+        int height(const Coord coord) const {
+            auto it = cells_.find(coord);
+            return (it == cells_.end()) ? 0 : static_cast<int>(it->second.size());
+        }
+
+        bool empty (Coord coord) const {
+            auto it = cells_.find(coord);
+            return it == cells_.end() || it->second.empty();
+        }
+
+
+
+        // ----- Operations -----
+        void place(Coord coord, Piece piece);
+
+        Piece remove(Coord coord);
+
+        void move(Coord from, Coord to);
+
+        void getOccupiedNeighbors(Coord coord, std::vector<Coord>& out) const;
+
+
+        // LEGACY FUNCTIONS
+
+        // void push(const Coord& c, const Piece& p) {
+        //     cells_[c].push_back(p);
+        // }
+        //
+        // Piece pop(const Coord& c) {
+        //     auto& st = cells_.at(c);
+        //     Piece p = st.back();
+        //     st.pop_back();
+        //     if (st.empty()) cells_.erase(c);
+        //     return p;
+        // }
+        //
+        // void moveTop(const Coord& from, const Coord& to) {
+        //     Piece p = pop(from);
+        //     push(to, p);
+        // }
+
+        // std::vector<Coord> occupiedCells() const {
+        //     std::vector<Coord> out;
+        //     //ci serve che il vettore out delle celle abbia posto per esattamente tante coordinate quanti gli elementi di cells
+        //     out.reserve(cells_.size());
+        //     //ciclo for per iterare in maniera più semplice su tutte le componenti di cells, kv=key,value
+        //     for (const auto& kv : cells_) out.push_back(kv.first);
+        //     return out;
+        // }
+    };
+
+#ifdef USE_UNORDERED_MAP_BOARD
+    using Board = BoardAsUnorderedMap;
+#else
+    using Board = BoardAsArray;
+#endif
+};

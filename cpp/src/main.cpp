@@ -8,6 +8,11 @@ int main() {
 
     // Instantiate and trap process inside the communication loop
     Hive::UhpHandler uhp;
+
+    uhp.cmdInfo();
+    std::cout << std::flush;
+
+
     uhp.loop();
 
     return 0;

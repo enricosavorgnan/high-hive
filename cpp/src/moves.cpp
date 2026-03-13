@@ -4,28 +4,15 @@
 #include <deque>
 #include <algorithm>
 
+#include "rules.h"
+
 namespace Hive::Moves {
 
-    // Contact Rule
-    // Keep physical contact 
-    static bool touchesHive(const Board& board, Coord target, Coord prop) {
-        // If we are leaving a stack, the underlying piece remains a valid hive connection
-        bool propRemainsOccupied = (board.height(prop) > 1);
-
-        for (const auto& n : coordNeighbors(target)) {
-            if (n == prop) {
-                if (propRemainsOccupied) return true;
-                continue;
-            }
-            if (!board.empty(n)) return true;
-        }
-        return false;
-    }
-
     // --- Implementations ---
-    void getAntMoves(const Board& board, Coord prop, std::vector<Coord>& targets) {
+    void getAntMoves(const Board& board, const Coord prop, std::vector<Coord>& targets) {
         std::unordered_set<Coord, CoordHash> visited;
         std::deque<Coord> queue;
+        visited.reserve(64);
 
         visited.insert(prop);
         queue.push_back(prop);
@@ -39,11 +26,10 @@ namespace Hive::Moves {
             }
 
             auto neighbors = coordNeighbors(curr);
-            int currIdx = Board::AxToIndex(curr);
 
             for (const auto& n : neighbors) {
-                if (board.empty(n) && visited.find(n) == visited.end()) {
-                    if (RuleEngine::canSlide(board, currIdx, Board::AxToIndex(n)) && touchesHive(board, n, curr)) {
+                if (board.empty(n) && !visited.contains(n)) {
+                    if (RuleEngine::canSlide(board, curr, n, prop) && RuleEngine::touchesHive(board, n, prop)) {
                         visited.insert(n);
                         queue.push_back(n);
                     }
@@ -55,14 +41,12 @@ namespace Hive::Moves {
     
     void getBeetleMoves(const Board& board, Coord prop, std::vector<Coord>& targets) {
         auto neighbors = coordNeighbors(prop);
-        int propIdx = Board::AxToIndex(prop);
 
         for (const auto& n : neighbors) {
-            int nIdx = Board::AxToIndex(n);
 
             // The 3D slide rule natively handles climbing up, moving on top, and stepping down.
-            if (RuleEngine::canSlide(board, propIdx, nIdx)) {
-                if (touchesHive(board, n, prop)) {
+            if (RuleEngine::canSlide(board, prop, n, prop)) {
+                if (RuleEngine::touchesHive(board, n, prop)) {
                     targets.push_back(n);
                 }
             }
@@ -85,23 +69,30 @@ namespace Hive::Moves {
 
 
     void getLadybugMoves(const Board& board, Coord prop, std::vector<Coord>& targets) {
+        // Lambda to calculate height safely ignoring the origin piece
+        auto vHeight = [&](Coord c) {
+            return board.height(c) - (c == prop ? 1 : 0);
+        };
+
         std::vector<Coord> step1;
         for (const auto& n : coordNeighbors(prop)) {
-            if (!board.empty(n)) step1.push_back(n);
+            if (vHeight(n)>0 && RuleEngine::canSlide(board, prop, n, prop)) step1.push_back(n);
         }
 
         std::vector<Coord> step2;
         for (const auto& s1 : step1) {
             for (const auto& n : coordNeighbors(s1)) {
-                if (!board.empty(n)) step2.push_back(n);
+                if (vHeight(n) > 0 && RuleEngine::canSlide(board, s1, n, prop)) step2.push_back(n);
             }
         }
 
         std::unordered_set<Coord, CoordHash> uniqueTargets;
         for (const auto& s2 : step2) {
             for (const auto& n : coordNeighbors(s2)) {
-                if (board.empty(n) && n != prop) {
+                if (vHeight(n) == 0 && n != prop) {
+                    if (RuleEngine::canSlide(board, s2, n, prop) && RuleEngine::touchesHive(board, n, prop) ){
                     uniqueTargets.insert(n);
+                    }
                 }
             }
         }
@@ -110,7 +101,7 @@ namespace Hive::Moves {
     }
 
 
-    void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets) {
+    void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints) {
         if (board.height(prop) > 1) {
             getBeetleMoves(board, prop, targets);
             return;
@@ -129,8 +120,19 @@ namespace Hive::Moves {
         for (const auto& n : neighbors) {
             const Piece* neighborPiece = board.top(n);
 
-            if (neighborPiece && neighborPiece->bug != Bug::Mosquito) {
-                int bugTypeIdx = static_cast<int>(neighborPiece->bug);
+            if (neighborPiece) {
+                Bug targetBug = neighborPiece->bug;
+
+                // Mathematical correction for Mosquito elevation mirroring
+                if (targetBug == Bug::Mosquito) {
+                    if (board.height(n) > 1) {
+                        targetBug = Bug::Beetle; // Elevated Mosquito acts as a Beetle
+                    } else {
+                        continue; // Ground-level Mosquito provides no movement capabilities
+                    }
+                }
+
+                int bugTypeIdx = static_cast<int>(targetBug);
 
                 // If we have not already copied this bug's movement type
                 if (!copiedBehaviors[bugTypeIdx]) {
@@ -143,7 +145,7 @@ namespace Hive::Moves {
                         case Bug::Grasshopper: getGrasshopperMoves(board, prop, tempTargets); break;
                         case Bug::Ant:         getAntMoves(board, prop, tempTargets); break;
                         case Bug::Ladybug:     getLadybugMoves(board, prop, tempTargets); break;
-                        case Bug::Pillbug:     getPillbugMoves(board, prop, tempTargets); break;
+                        case Bug::Pillbug:     getPillbugMoves(board, prop, tempTargets,lastMovedPieceCoord, dragTargets, articulationPoints); break;
                         default: break;
                     }
                 }
@@ -154,7 +156,7 @@ namespace Hive::Moves {
 
         // Cache-friendly coordinate deduplication
         // (A Beetle and a Queen might yield the exact same adjacent destination)
-        std::sort(tempTargets.begin(), tempTargets.end(), [](const Coord& a, const Coord& b) {
+        std::ranges::sort(tempTargets, [](const Coord& a, const Coord& b) {
             if (a.q != b.q) return a.q < b.q;
             return a.r < b.r;
         });
@@ -166,19 +168,55 @@ namespace Hive::Moves {
     }
 
 
-    void getPillbugMoves(const Board &board, Coord prop, std::vector<Coord> &targets) {
+    void getPillbugDragMoves(const Board &board, const Coord prop, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>> &dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints) {
+        std::vector<Coord> validSources;
+        std::vector<Coord> validDestinations;
+        std::array<Coord, 6> neighbors = coordNeighbors(prop);
+
+        // Phase 1. Find valid pieces to drag
+        for (const auto& src: neighbors) {
+            if (board.empty(src)) continue;
+            if (board.height(src) > 1) continue;
+            if (lastMovedPieceCoord && src == *lastMovedPieceCoord) continue;
+            if (!RuleEngine::canLiftPiece(board, src, articulationPoints)) continue;
+            if (!RuleEngine::canSlide(board, src, prop, src)) continue;
+            validSources.push_back(src);
+        }
+
+        // Phase 2. Find valid spots
+        for (const auto &dst : neighbors) {
+            if (board.empty(dst)) {
+                validDestinations.push_back(dst);
+            }
+        }
+
+        // Phase 3. Apply Cartesian combination and validation
+        for (const auto& src : validSources) {
+            for (const auto& dst : validDestinations) {
+                if (src == dst) continue;
+
+                if (RuleEngine::canSlide(board, prop, dst, src)) {
+                    dragTargets.push_back({src, dst});
+                }
+            }
+        }
+    }
+
+
+    void getPillbugMoves(const Board &board, Coord prop, std::vector<Coord> &targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>> &dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints) {
         // The Pillbug's standard movement is exactly identical to the Queen (1 step, slide).
         getQueenMoves(board, prop, targets);
+        // Special Drag move
+        getPillbugDragMoves(board, prop, lastMovedPieceCoord, dragTargets, articulationPoints);
     }
 
 
     void getQueenMoves(const Board& board, Coord prop, std::vector<Coord>& targets) {
         auto neighbors = coordNeighbors(prop);
-        int propIdx = Board::AxToIndex(prop);
 
         for (const auto& n : neighbors) {
             if (board.empty(n)) {
-                if (RuleEngine::canSlide(board, propIdx, Board::AxToIndex(n)) && touchesHive(board, n, prop)) {
+                if (RuleEngine::canSlide(board, prop, n, prop) && RuleEngine::touchesHive(board, n, prop)) {
                     targets.push_back(n);
                 }
             }
@@ -201,14 +239,13 @@ namespace Hive::Moves {
             stack.pop_back();
 
             if (current.depth == 3) {
-                if (std::find(targets.begin(), targets.end(), current.c) == targets.end()) {
+                if (std::ranges::find(targets.begin(), targets.end(), current.c) == targets.end()) {
                     targets.push_back(current.c);
                 }
                 continue;
             }
 
             auto neighbors = coordNeighbors(current.c);
-            int currIdx = Board::AxToIndex(current.c);
 
             for (const auto& n : neighbors) {
                 if (!board.empty(n)) continue;
@@ -217,8 +254,8 @@ namespace Hive::Moves {
                 for(const auto& p : current.path) if(p == n) visited = true;
                 if(visited) continue;
 
-                if (!RuleEngine::canSlide(board, currIdx, Board::AxToIndex(n))) continue;
-                if (!touchesHive(board, n, current.c)) continue;
+                if (!RuleEngine::canSlide(board, current.c, n, prop)) continue;
+                if (!RuleEngine::touchesHive(board, n, prop)) continue;
 
                 std::vector<Coord> nextPath = current.path;
                 nextPath.push_back(n);
