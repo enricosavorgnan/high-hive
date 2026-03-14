@@ -296,10 +296,42 @@ More in the specific:
    - The articulation points set is returned.
    Notice how the DFS is performed only on the occupied coordinates, meaning that the complexity of the algorithm is $\mathcal{O}(V + E)$ where $V$ is the number of occupied coordinates and $E$ is the number of edges between them.
 5. `canLiftPiece` \
-   A piece can only leave its tile if: (i) the height of the tile is more than 1, meaning that the piece have some other bugs under it or (ii) the piece is not an articulation point.
+   A piece can only leave its tile if: (i) the height of the tile is more than 1, meaning that the piece have some other bugs under it or (ii) the piece is not an articulation point. 
+   A simple check on the height and on the presence in the set of the articulation points is performed.
 
 
 ### 3.8 The State
+The state is another very delicate element of the UHP bot. It provides to all the backend functions a board, the players' hands, the history of the game plus some other information.
+It defines also several methods useful to efficiently manage the hand, the application of the moves and the *undo* operation of the last played move.
+
+The `State` class is defined as follows:
+- A `Board`, of type `BoardAsArray` or `BoardAsUnorderedMap` dependently to the operations done at `board.h` file (see [Section 3.1](#31-the-board)).
+- A `currentPlayer` of type `Color`.
+- A `currentPlayerTurn`, indicating the total number of plies played by the two players.
+- Two arrays of fixed size containing the hands of the two players.
+- Two booleans for checking whether the Queen of the two colors have been played.
+- A `coord` containing the coordinate of the last moved piece; this is needed for the undo operation and for pillbug's (and Mosquito's, if it plays as a pillbug) drag move.
+- A vector of `HistoryStep`s containing the `history` of the game.
+
+An `HistoryStep` is build as follows:
+- A `Move`, with its own features (type, bug, coordinates).
+- An `index` of the placed piece.
+- The previous last moved piece coordinate (`previousLastMovedPieceCoord`).
+- The previous `whiteQueenPlaced` and `blackQueenPlaced` parameters.
+
+The class `State`, as told, exposes some methods:
+1. `board` :  returns the `board`
+2. `toMove` : returns the player that currently has to move
+3. `getCurrentPlayerTurn` : returns the ply of the current player
+4. `isQueenPlaced` : returns whether the queen of the given `color` has been played
+5. `lastMovedPieceCoord ` : returns the coordinates of the last moved piece
+6. `hasInHand` : returns whether the hand of the `piece.color` color contains the given `piece`.
+7. `getUniqueAvailablePieces` : retrives the unique `bug` type (without the `id`) of the available pieces in hand of the player of the given `color`.
+8. `applyMove` : applies a given `move` and updates the history and the `state` parameters.
+   If the move is a *placement*, the `_{color}QueenPlaced` parameter is updated.
+   If the move is a *movement* or a *drag* the `board.move` method is invoked.
+9. `undoLastMove` : uses the `lastMovedPieceCoord` as a target coordinate for moving the last moved piece (found in the `_history`). The other `state` parameters are updated.
+
 
 ### 3.9 The UHP Protocol
 #### 3.9.1 The UHP Loop

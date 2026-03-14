@@ -30,7 +30,7 @@ namespace Hive {
             // If the piece is found in the hand, cache its index and overwrite it with a dummy "invalid" piece
             if (piece != hand.end()) {
                 step.handIndex = static_cast<int>(std::distance(hand.begin(), piece));
-                *piece = Piece{move.piece.color, Bug::Queen, 255};
+                *piece = Piece{move.piece.color, Bug::Queen, move.piece.id};
             }
 
             _board.place(move.to, move.piece);

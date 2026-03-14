@@ -10,39 +10,39 @@
 namespace Hive {
 
     static constexpr std::array<Piece, 14> INITIAL_WHITE_HAND = {{
-        {Color::White, Bug::Queen, 1},
-        {Color::White, Bug::Beetle, 1},
-        {Color::White, Bug::Beetle, 2},
-        {Color::White, Bug::Spider, 1},
-        {Color::White, Bug::Spider, 2},
-        {Color::White, Bug::Grasshopper, 1},
-        {Color::White, Bug::Grasshopper, 2},
-        {Color::White, Bug::Grasshopper, 3},
         {Color::White, Bug::Ant, 1},
         {Color::White, Bug::Ant, 2},
         {Color::White, Bug::Ant, 3},
+        {Color::White, Bug::Beetle, 1},
+        {Color::White, Bug::Beetle, 2},
+        {Color::White, Bug::Grasshopper, 1},
+        {Color::White, Bug::Grasshopper, 2},
+        {Color::White, Bug::Grasshopper, 3},
         {Color::White, Bug::Ladybug, 1},
         {Color::White, Bug::Mosquito, 1},
         {Color::White, Bug::Pillbug, 1},
+        {Color::White, Bug::Queen, 1},
+        {Color::White, Bug::Spider, 1},
+        {Color::White, Bug::Spider, 2},
     }};
 
+
     static constexpr std::array<Piece, 14> INITIAL_BLACK_HAND = {{
-        {Color::Black, Bug::Queen, 1},
-        {Color::Black, Bug::Beetle, 1},
-        {Color::Black, Bug::Beetle, 2},
-        {Color::Black, Bug::Spider, 1},
-        {Color::Black, Bug::Spider, 2},
-        {Color::Black, Bug::Grasshopper, 1},
-        {Color::Black, Bug::Grasshopper, 2},
-        {Color::Black, Bug::Grasshopper, 3},
         {Color::Black, Bug::Ant, 1},
         {Color::Black, Bug::Ant, 2},
         {Color::Black, Bug::Ant, 3},
+        {Color::Black, Bug::Beetle, 1},
+        {Color::Black, Bug::Beetle, 2},
+        {Color::Black, Bug::Grasshopper, 1},
+        {Color::Black, Bug::Grasshopper, 2},
+        {Color::Black, Bug::Grasshopper, 3},
         {Color::Black, Bug::Ladybug, 1},
         {Color::Black, Bug::Mosquito, 1},
         {Color::Black, Bug::Pillbug, 1},
+        {Color::Black, Bug::Queen, 1},
+        {Color::Black, Bug::Spider, 1},
+        {Color::Black, Bug::Spider, 2},
     }};
-
 
     struct HistoryStep {
         Move move;
@@ -82,10 +82,12 @@ namespace Hive {
             [[nodiscard]] bool isQueenPlaced(Color color) const { return color == Color::White ? _whiteQueenPlaced : _blackQueenPlaced; }
             [[nodiscard]] std::optional<Coord> lastMovedPieceCoord() const { return _lastMovedPieceCoord; }
 
+            // Returns weyther the hand of the color of the piece contains the given piece
             [[nodiscard]] bool hasInHand(Piece piece) const {
                 const auto& hand = (piece.color == Color::White) ? _whiteHand : _blackHand;
                 return std::ranges::find(hand, piece) != hand.end();
             }
+
             // Retrieves one of each available bug type to prevent duplicate game-tree branches
             [[nodiscard]] std::vector<Piece> getUniqueAvailablePieces(Color color) const {
                     std::vector<Piece> uniquePieces;
