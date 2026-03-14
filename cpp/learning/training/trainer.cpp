@@ -230,6 +230,111 @@ namespace Hive::Learning {
         std::cout << "Pre-training complete.\n";
     }
 
+    void Trainer::pretrainFromDisk(const std::string& batchDir, int epochs) {
+        // Collect all batch file prefixes
+        std::vector<std::string> batchPrefixes;
+        for (const auto& entry : std::filesystem::directory_iterator(batchDir)) {
+            auto fname = entry.path().filename().string();
+            // Look for *_states.pt files to identify batch prefixes
+            if (fname.size() > 10 && fname.substr(fname.size() - 10) == "_states.pt") {
+                std::string prefix = entry.path().string();
+                prefix = prefix.substr(0, prefix.size() - 10); // strip "_states.pt"
+                batchPrefixes.push_back(prefix);
+            }
+        }
+        std::sort(batchPrefixes.begin(), batchPrefixes.end());
+
+        if (batchPrefixes.empty()) {
+            std::cerr << "No batch files found in " << batchDir << "\n";
+            return;
+        }
+
+        // Count total samples across all batches
+        int totalSamples = 0;
+        for (const auto& prefix : batchPrefixes) {
+            torch::Tensor s;
+            torch::load(s, prefix + "_states.pt");
+            totalSamples += static_cast<int>(s.size(0));
+        }
+
+        std::cout << "Pre-training from " << batchPrefixes.size() << " batch files, "
+                  << totalSamples << " total samples, " << epochs << " epochs\n";
+
+        model_->train();
+
+        auto pretrainOptimizer = torch::optim::SGD(
+            model_->parameters(),
+            torch::optim::SGDOptions(PRETRAIN_LR)
+                .momentum(MOMENTUM)
+                .weight_decay(WEIGHT_DECAY)
+        );
+
+        auto device = model_->parameters().front().device();
+
+        for (int epoch = 0; epoch < epochs; ++epoch) {
+            float epochPolicyLoss = 0.0f, epochValueLoss = 0.0f;
+            int epochSteps = 0;
+
+            for (const auto& prefix : batchPrefixes) {
+                // Load one batch file into memory
+                torch::Tensor states, policies, values;
+                torch::load(states, prefix + "_states.pt");
+                torch::load(policies, prefix + "_policies.pt");
+                torch::load(values, prefix + "_values.pt");
+
+                int n = static_cast<int>(states.size(0));
+
+                // Shuffle indices for this batch file
+                auto perm = torch::randperm(n, torch::kLong);
+
+                // Mini-batch loop over this file
+                for (int offset = 0; offset + BATCH_SIZE <= n; offset += BATCH_SIZE) {
+                    auto idx = perm.slice(0, offset, offset + BATCH_SIZE);
+                    auto batchStates = states.index_select(0, idx).to(device);
+                    auto batchPolicies = policies.index_select(0, idx).to(device);
+                    auto batchValues = values.index_select(0, idx).to(device);
+
+                    auto [logits, vals] = model_->forward(batchStates);
+
+                    auto logSoftmax = torch::log_softmax(logits, 1);
+                    auto policyLoss = -(batchPolicies * logSoftmax).sum(1).mean();
+                    auto valueLoss = torch::mse_loss(vals, batchValues);
+                    auto totalLoss = policyLoss + valueLoss;
+
+                    pretrainOptimizer.zero_grad();
+                    totalLoss.backward();
+                    pretrainOptimizer.step();
+
+                    epochPolicyLoss += policyLoss.item<float>();
+                    epochValueLoss += valueLoss.item<float>();
+                    ++epochSteps;
+                }
+            }
+
+            if (epochSteps > 0) {
+                epochPolicyLoss /= epochSteps;
+                epochValueLoss /= epochSteps;
+            }
+            std::cout << "Epoch " << (epoch + 1) << "/" << epochs
+                      << " | Policy: " << epochPolicyLoss
+                      << " | Value: " << epochValueLoss
+                      << " | Steps: " << epochSteps << "\n";
+        }
+
+        // Copy trained parameters to best model
+        {
+            torch::NoGradGuard no_grad;
+            auto src_params = model_->parameters();
+            auto dst_params = bestModel_->parameters();
+            for (size_t i = 0; i < src_params.size(); ++i) {
+                dst_params[i].copy_(src_params[i]);
+            }
+        }
+
+        saveCheckpoint("pretrained");
+        std::cout << "Pre-training complete.\n";
+    }
+
     float Trainer::evaluate(HiveNet modelA, HiveNet modelB, int numGames) {
         modelA->eval();
         modelB->eval();

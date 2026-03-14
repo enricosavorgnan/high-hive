@@ -40,8 +40,11 @@ namespace Hive::Learning {
         // Run the full training loop for numIterations
         void train(int numIterations);
 
-        // Supervised pre-training from training samples
+        // Supervised pre-training from training samples (in-memory, for small datasets)
         void pretrain(const std::vector<TrainingSample>& data, int epochs = PRETRAIN_EPOCHS);
+
+        // Supervised pre-training from batch files on disk (for large datasets)
+        void pretrainFromDisk(const std::string& batchDir, int epochs = PRETRAIN_EPOCHS);
 
         // Save model checkpoint
         void saveCheckpoint(const std::string& name);

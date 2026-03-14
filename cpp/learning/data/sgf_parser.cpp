@@ -475,11 +475,39 @@ namespace Hive::Learning {
         return samples;
     }
 
-    std::vector<TrainingSample> SgfParser::processDirectory(const std::string& dirPath) {
-        std::vector<TrainingSample> allSamples;
+    // Flush accumulated samples to a .pt file on disk, then clear the buffer.
+    static void flushBatch(std::vector<TrainingSample>& pending, const std::string& outputDir, int batchIdx) {
+        if (pending.empty()) return;
+
+        int n = static_cast<int>(pending.size());
+        auto states = torch::zeros({n, NUM_CHANNELS, GRID_SIZE, GRID_SIZE});
+        auto policies = torch::zeros({n, ACTION_SPACE});
+        auto values = torch::zeros({n, 1});
+
+        for (int i = 0; i < n; ++i) {
+            states[i] = pending[i].state;
+            policies[i] = pending[i].policy;
+            values[i][0] = pending[i].value;
+        }
+
+        std::string prefix = outputDir + "/batch_" + std::to_string(batchIdx);
+        torch::save(states, prefix + "_states.pt");
+        torch::save(policies, prefix + "_policies.pt");
+        torch::save(values, prefix + "_values.pt");
+
+        pending.clear();
+    }
+
+    int SgfParser::processDirectory(const std::string& dirPath, const std::string& outputDir) {
+        std::filesystem::create_directories(outputDir);
+
         int totalGames = 0, validGames = 0, totalSamples = 0;
         int noMoves = 0, illegalMove = 0;
         int resultFromTag = 0, resultInferred = 0, resultUnknown = 0;
+
+        const int FLUSH_THRESHOLD = 10000; // samples per batch file
+        std::vector<TrainingSample> pending;
+        int batchIdx = 0;
 
         for (const auto& entry : std::filesystem::recursive_directory_iterator(dirPath)) {
             if (entry.path().extension() == ".sgf") {
@@ -501,9 +529,16 @@ namespace Hive::Learning {
                     if (hasResultTag) ++resultFromTag;
                     else ++resultInferred;
                     totalSamples += static_cast<int>(samples.size());
-                    allSamples.insert(allSamples.end(),
+
+                    pending.insert(pending.end(),
                         std::make_move_iterator(samples.begin()),
                         std::make_move_iterator(samples.end()));
+
+                    if (static_cast<int>(pending.size()) >= FLUSH_THRESHOLD) {
+                        flushBatch(pending, outputDir, batchIdx++);
+                        std::cout << "[SGF] Saved batch " << batchIdx
+                                  << " (" << totalSamples << " samples so far)\n";
+                    }
                 } else {
                     if (!hasResultTag) ++resultUnknown;
                     else ++illegalMove;
@@ -515,6 +550,11 @@ namespace Hive::Learning {
                               << totalSamples << " samples so far\n";
                 }
             }
+        }
+
+        // Flush remaining samples
+        if (!pending.empty()) {
+            flushBatch(pending, outputDir, batchIdx++);
         }
 
         int discarded = totalGames - validGames;
@@ -534,13 +574,15 @@ namespace Hive::Learning {
                   << "    - no result:      " << resultUnknown
                   << " (no RE tag + no queen surrounded)\n"
                   << "    - illegal/parse:  " << illegalMove << "\n"
-                  << "  Training samples:   " << totalSamples << "\n"
+                  << "  Training samples:   " << totalSamples
+                  << " (in " << batchIdx << " batch files)\n"
                   << "  Avg samples/game:   "
                   << (validGames > 0 ? static_cast<float>(totalSamples) / validGames : 0.0f)
                   << "\n"
+                  << "  Output directory:   " << outputDir << "\n"
                   << "=============================================\n";
 
-        return allSamples;
+        return totalSamples;
     }
 
 } // namespace Hive::Learning

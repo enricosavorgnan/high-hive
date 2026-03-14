@@ -7,7 +7,7 @@
 #include <string>
 
 // Supervised pre-training entry point
-// Usage: ./hive_pretrain --sgf-dir DIR [--epochs N] [--checkpoint-dir DIR]
+// Usage: ./hive_pretrain --sgf-dir DIR [--epochs N] [--checkpoint-dir DIR] [--batch-dir DIR]
 
 int main(int argc, char* argv[]) {
     using namespace Hive::Learning;
@@ -15,6 +15,7 @@ int main(int argc, char* argv[]) {
     std::string sgfDir;
     int epochs = PRETRAIN_EPOCHS;
     std::string checkpointDir = "checkpoints/";
+    std::string batchDir = "pretrain_batches/";
 
     // Parse CLI args
     for (int i = 1; i < argc; ++i) {
@@ -25,11 +26,14 @@ int main(int argc, char* argv[]) {
             epochs = std::stoi(argv[++i]);
         } else if (arg == "--checkpoint-dir" && i + 1 < argc) {
             checkpointDir = argv[++i];
+        } else if (arg == "--batch-dir" && i + 1 < argc) {
+            batchDir = argv[++i];
         } else if (arg == "--help") {
             std::cout << "Usage: hive_pretrain [OPTIONS]\n"
                       << "  --sgf-dir DIR       Directory containing SGF files (required)\n"
                       << "  --epochs N          Number of epochs (default: 30)\n"
-                      << "  --checkpoint-dir D  Checkpoint directory (default: checkpoints/)\n";
+                      << "  --checkpoint-dir D  Checkpoint directory (default: checkpoints/)\n"
+                      << "  --batch-dir D       Directory for intermediate batch files (default: pretrain_batches/)\n";
             return 0;
         }
     }
@@ -41,6 +45,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "=== High-Hive Supervised Pre-Training ===\n";
     std::cout << "SGF directory: " << sgfDir << "\n";
+    std::cout << "Batch directory: " << batchDir << "\n";
     std::cout << "Epochs: " << epochs << "\n\n";
 
     // Check for CUDA
@@ -50,26 +55,24 @@ int main(int argc, char* argv[]) {
         std::cout << "CUDA not available. Training on CPU (will be slow).\n";
     }
 
-    // Load and process SGF data
-    std::cout << "Loading SGF games from " << sgfDir << "...\n";
-    auto samples = SgfParser::processDirectory(sgfDir);
+    // Step 1: Parse SGF files and save training samples to disk in batches
+    std::cout << "\nStep 1: Parsing SGF games from " << sgfDir << "...\n";
+    int totalSamples = SgfParser::processDirectory(sgfDir, batchDir);
 
-    if (samples.empty()) {
+    if (totalSamples == 0) {
         std::cerr << "Error: No valid training samples found\n";
         return 1;
     }
 
-    std::cout << "Loaded " << samples.size() << " training samples\n\n";
-
-    // Create model
+    // Step 2: Train from disk batches
+    std::cout << "\nStep 2: Training...\n";
     HiveNet model;
     if (torch::cuda::is_available()) {
         model->to(torch::kCUDA);
     }
 
-    // Create trainer and pre-train
     Trainer trainer(model, checkpointDir);
-    trainer.pretrain(samples, epochs);
+    trainer.pretrainFromDisk(batchDir, epochs);
 
     std::cout << "\nPre-training complete. Checkpoint saved to " << checkpointDir << "\n";
 

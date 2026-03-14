@@ -33,9 +33,9 @@ namespace Hive::Learning {
         // Returns empty vector if the game is invalid
         static std::vector<TrainingSample> processGame(const SgfGameInfo& game);
 
-        // Process all SGF files in a directory
-        // Returns all valid training samples
-        static std::vector<TrainingSample> processDirectory(const std::string& dirPath);
+        // Process all SGF files in a directory, saving samples to disk in batches.
+        // Returns total number of samples saved.
+        static int processDirectory(const std::string& dirPath, const std::string& outputDir);
 
         // Parse the result string to get outcome (+1 white wins, -1 black wins, 0 draw)
         static float parseResult(const std::string& result);
