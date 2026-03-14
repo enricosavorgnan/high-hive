@@ -242,7 +242,21 @@ The file `moves.cpp` presents all the possible pieces moves.
 7. `Queen` : Simply moves in a valid neighbor cell
 8. `Spider` : Goes 3 steps into DFS.
 
+
 ### 3.6 The Pieces
+The file `pieces.h` defines the `Piece` structure. 
+
+Each piece is a tuple with the following:
+- `Color` : the color of the piece
+- `Bug` : the type of the bug (Ant, Beetle, Grassopher, Ladybug, Mosquito, Pillbug, Queen, Spider)
+- `id` : the ID of the bug, i.e. the number identifying a specific bug. 
+
+For example, the second ant of the white player (`wA2`) has `piece <- (color = Color::White, bug = Bug::Ant, id = 2)`.
+
+Three methods are implemented:
+1. `colorName` : returns the string view `White` or the string view `Black` given a color `col`.
+2. `bugName` : returs the string view of the bug (e.g. `Ant`) given a bug `bug`.
+3. `rival` : returns the color of the opposite player of the one who is playing.
 
 ### 3.7 The Rules
 

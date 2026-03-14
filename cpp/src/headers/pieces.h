@@ -7,7 +7,7 @@
 // where:
 // color:   is the color of the bug (white or black)
 // bug:     is the type of bug
-// id:  is the id of the bug (piece=wA2 -> id=2; piece=bQ -> id=0)
+// id:      is the id of the bug (piece=wA2 -> id=2; piece=bQ -> id=0)
 
 namespace Hive {
 
