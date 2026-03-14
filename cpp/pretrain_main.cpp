@@ -7,7 +7,7 @@
 #include <string>
 
 // Supervised pre-training entry point
-// Usage: ./hive_pretrain --sgf-dir DIR [--epochs N] [--checkpoint-dir DIR] [--batch-dir DIR]
+// Usage: ./hive_pretrain --sgf-dir DIR [--epochs N] [--checkpoint-dir DIR] [--batch-dir DIR] [--skip-files N] [--parse-only]
 
 int main(int argc, char* argv[]) {
     using namespace Hive::Learning;
@@ -16,6 +16,9 @@ int main(int argc, char* argv[]) {
     int epochs = PRETRAIN_EPOCHS;
     std::string checkpointDir = "checkpoints/";
     std::string batchDir = "pretrain_batches/";
+    int skipFiles = 0;
+    bool parseOnly = false;
+    bool trainOnly = false;
 
     // Parse CLI args
     for (int i = 1; i < argc; ++i) {
@@ -28,25 +31,26 @@ int main(int argc, char* argv[]) {
             checkpointDir = argv[++i];
         } else if (arg == "--batch-dir" && i + 1 < argc) {
             batchDir = argv[++i];
+        } else if (arg == "--skip-files" && i + 1 < argc) {
+            skipFiles = std::stoi(argv[++i]);
+        } else if (arg == "--parse-only") {
+            parseOnly = true;
+        } else if (arg == "--train-only") {
+            trainOnly = true;
         } else if (arg == "--help") {
             std::cout << "Usage: hive_pretrain [OPTIONS]\n"
-                      << "  --sgf-dir DIR       Directory containing SGF files (required)\n"
+                      << "  --sgf-dir DIR       Directory containing SGF files (required unless --train-only)\n"
                       << "  --epochs N          Number of epochs (default: 30)\n"
                       << "  --checkpoint-dir D  Checkpoint directory (default: checkpoints/)\n"
-                      << "  --batch-dir D       Directory for intermediate batch files (default: pretrain_batches/)\n";
+                      << "  --batch-dir D       Directory for batch files (default: pretrain_batches/)\n"
+                      << "  --skip-files N      Skip first N SGF files (for resuming)\n"
+                      << "  --parse-only        Only parse SGF files, don't train\n"
+                      << "  --train-only        Only train from existing batch files, don't parse\n";
             return 0;
         }
     }
 
-    if (sgfDir.empty()) {
-        std::cerr << "Error: --sgf-dir is required\n";
-        return 1;
-    }
-
     std::cout << "=== High-Hive Supervised Pre-Training ===\n";
-    std::cout << "SGF directory: " << sgfDir << "\n";
-    std::cout << "Batch directory: " << batchDir << "\n";
-    std::cout << "Epochs: " << epochs << "\n\n";
 
     // Check for CUDA
     if (torch::cuda::is_available()) {
@@ -55,17 +59,28 @@ int main(int argc, char* argv[]) {
         std::cout << "CUDA not available. Training on CPU (will be slow).\n";
     }
 
-    // Step 1: Parse SGF files and save training samples to disk in batches
-    std::cout << "\nStep 1: Parsing SGF games from " << sgfDir << "...\n";
-    int totalSamples = SgfParser::processDirectory(sgfDir, batchDir);
+    // Step 1: Parse SGF files (unless --train-only)
+    if (!trainOnly) {
+        if (sgfDir.empty()) {
+            std::cerr << "Error: --sgf-dir is required (unless --train-only)\n";
+            return 1;
+        }
+        std::cout << "\nStep 1: Parsing SGF games from " << sgfDir << "...\n";
+        int totalSamples = SgfParser::processDirectory(sgfDir, batchDir, skipFiles);
 
-    if (totalSamples == 0) {
-        std::cerr << "Error: No valid training samples found\n";
-        return 1;
+        if (totalSamples == 0 && !parseOnly) {
+            std::cerr << "Error: No valid training samples found\n";
+            return 1;
+        }
+
+        if (parseOnly) {
+            std::cout << "\nParsing complete. Batch files saved to " << batchDir << "\n";
+            return 0;
+        }
     }
 
     // Step 2: Train from disk batches
-    std::cout << "\nStep 2: Training...\n";
+    std::cout << "\nStep 2: Training from " << batchDir << "...\n";
     HiveNet model;
     if (torch::cuda::is_available()) {
         model->to(torch::kCUDA);

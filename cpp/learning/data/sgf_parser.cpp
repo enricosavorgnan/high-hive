@@ -498,20 +498,42 @@ namespace Hive::Learning {
         pending.clear();
     }
 
-    int SgfParser::processDirectory(const std::string& dirPath, const std::string& outputDir) {
+    int SgfParser::processDirectory(const std::string& dirPath, const std::string& outputDir, int skipFiles) {
         std::filesystem::create_directories(outputDir);
 
         int totalGames = 0, validGames = 0, totalSamples = 0;
         int noMoves = 0, illegalMove = 0;
         int resultFromTag = 0, resultInferred = 0, resultUnknown = 0;
+        int skipped = 0;
 
         const int FLUSH_THRESHOLD = 10000; // samples per batch file
         std::vector<TrainingSample> pending;
+
+        // Auto-detect next batch index from existing files in outputDir
         int batchIdx = 0;
+        for (const auto& f : std::filesystem::directory_iterator(outputDir)) {
+            auto fname = f.path().filename().string();
+            if (fname.find("batch_") == 0 && fname.find("_states.pt") != std::string::npos) {
+                // Extract batch number from "batch_NNN_states.pt"
+                auto numStr = fname.substr(6, fname.find("_states.pt") - 6);
+                int idx = std::stoi(numStr) + 1;
+                if (idx > batchIdx) batchIdx = idx;
+            }
+        }
+        if (skipFiles > 0) {
+            std::cout << "[SGF] Resuming: skipping first " << skipFiles
+                      << " files, starting at batch " << batchIdx << "\n";
+        }
 
         for (const auto& entry : std::filesystem::recursive_directory_iterator(dirPath)) {
             if (entry.path().extension() == ".sgf") {
                 ++totalGames;
+
+                // Skip already-processed files when resuming
+                if (skipped < skipFiles) {
+                    ++skipped;
+                    continue;
+                }
 
                 auto gameInfo = parseFile(entry.path().string());
 

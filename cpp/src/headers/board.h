@@ -33,7 +33,7 @@ namespace Hive {
     constexpr int BOARD_DIM = 64; // should include all the aligned pieces. Actually 55 should work
     constexpr int BOARD_OFFSET = BOARD_DIM / 2; // Offset for dealing with coordinates
     constexpr int BOARD_AREA = BOARD_DIM * BOARD_DIM; // Total grid area
-    constexpr int MAX_STACK = 6; // To bound the height of the cells. Actually, heights > 4 are quite rare
+    constexpr int MAX_STACK = 8; // To bound the height of the cells. Heights > 4 are rare, > 6 extremely rare
 
     // CELL
     template <typename Piece, int N>

@@ -34,8 +34,9 @@ namespace Hive::Learning {
         static std::vector<TrainingSample> processGame(const SgfGameInfo& game);
 
         // Process all SGF files in a directory, saving samples to disk in batches.
+        // skipFiles: skip the first N SGF files (for resuming after a crash).
         // Returns total number of samples saved.
-        static int processDirectory(const std::string& dirPath, const std::string& outputDir);
+        static int processDirectory(const std::string& dirPath, const std::string& outputDir, int skipFiles = 0);
 
         // Parse the result string to get outcome (+1 white wins, -1 black wins, 0 draw)
         static float parseResult(const std::string& result);
