@@ -258,7 +258,46 @@ Three methods are implemented:
 2. `bugName` : returs the string view of the bug (e.g. `Ant`) given a bug `bug`.
 3. `rival` : returns the color of the opposite player of the one who is playing.
 
+
 ### 3.7 The Rules
+The rules implemented into `rules.cpp` are the following:
+- `canSlide` : returns whether a piece on top of a tile at a given hexagonal coordinate `from` can move to a tile at a given hexagonal coordinate `target`.
+- `touchesColor` : returns whether putting a piece of a given `color` into a tile at a given hexagonal coordinate `target` lead to touching a piece of the same `color`. This enforces the rule of putting pieces is allowed only if the destination is adjacent to a piece of the same color.
+- `touchesHive` : returns whether moving a piece on top of a tile at a given coordinate `from` to a given coordinate `target`. Prevents moving pieces to the "limitless nothingness".
+- `getArticulationPoints` : returns the articulation points of a given `board` using the **Tarjan's Algorithm**.
+- `canLiftPiece` : returns whether a piece can be moved from its hexagonal coordinate. Replaces the legacy method `isBoardConnected`.
+
+Some legacy methods are kept (despite never being called by the UHP bot):
+- `isBoardConnected` : returns whether removing a piece on top of a tile at a given coordinate `coord` breaks the One Hive Rule
+
+More in the specific:
+1. `canSlide` \
+   The idea: a piece can move from a coordinate `from` to an **adjacent** coordinate `target` if the two "gates" (i.e. the two common neighbors of the coordinates `from` and `target`) have height less or equal to the one of the starting coordinate `from`.
+   The method accepts also an optional parameter `ignoreCoord` that is used in case is needed to not consider the piece currently in a tile at that coordinate for the calculation of the height: it is the case, for example, of a ladybug move, which cannot move "cycling" between its previous positions.
+   The steps of the method are the following : 
+   - A list of the adjacent neighbors is retrieved using the `neighborAdjacent` method defined into `coords.h`.
+   - A lambda function for retrieving the height of the tiles at coordinates `from` and `to` is implemented. It removes 1 to the height if the coordinate is the one to ignore `ignoreCoord`, while adds 1 if the coordinate is where actually the piece *is* standing.
+   - The calculation of the height of the `from` and the `target` coordinate is performed. Only the max between the two is kept.
+   - The calculation of the height of the two `gates` is performed.
+   - The method returns `false` if both the gates have height higher than the height of the maximum between the `from` and the `target` coordinate.
+2. `touchesColor` \
+   Just a simple for loop on the neighbors of the given hexagonal coordinate `coord` to check whether one of the neighbors have the preferred given `color`. 
+3. `touchesHive` \
+   Simply checks whether moving a piece from a given hexagonal coordinate `from` to a given hexagonal coordinate `target` leads to the piece touching some other piece in the `target` neighborhoods. \
+   ! This method does not enforce the One Hive Rule !
+4. `getArticulationPoints` \
+   Implements the articulation points using the [Tarjan's Algorithm](https://www.geeksforgeeks.org/dsa/tarjan-algorithm-find-strongly-connected-components/) for finding the Strongly Connected Components using a DFS.
+   - A list of all the occupied coordinates is retrieved by using `board.occupiedCoords`.
+   - If the list contains only one (or nothing) vertices, the method return an empty set
+   - The vertices coordinates are mapped using the `CoordHash` mapping.
+   - A list of adjacenty is build and stored into a vector.
+   - The DFS is performed. If a visited node is a root, with more then 1 child, it is saved as an articulation point. If a visited node is non-root and its discovery time is higher than the low value of one of its neighbors, it is saved as an articulation point.
+   - The found articulation points are then mapped back to a set of meaningful coordinates (i.e. not hashed).
+   - The articulation points set is returned.
+   Notice how the DFS is performed only on the occupied coordinates, meaning that the complexity of the algorithm is $\mathcal{O}(V + E)$ where $V$ is the number of occupied coordinates and $E$ is the number of edges between them.
+5. `canLiftPiece` \
+   A piece can only leave its tile if: (i) the height of the tile is more than 1, meaning that the piece have some other bugs under it or (ii) the piece is not an articulation point.
+
 
 ### 3.8 The State
 
