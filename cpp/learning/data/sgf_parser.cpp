@@ -12,6 +12,7 @@
 #include <regex>
 #include <algorithm>
 #include <cctype>
+#include <map>
 
 namespace Hive::Learning {
 
@@ -152,13 +153,58 @@ namespace Hive::Learning {
         }
 
         // --- Move extraction ---
+        // Boardspace allows players to undo moves within a turn (pickb = pick piece
+        // back from board). We buffer the move for each turn and only commit it when
+        // "done" is reached, so only the final placement/movement counts.
+        //
+        // Grid position tracker: maintain a map from boardspace grid (col, row) to
+        // a stack of piece names. This is needed to resolve beetle stacking moves
+        // where the reference is "." (climb on top of piece at destination).
 
-        // Capture player index (0/1) and action content
         std::regex actionRe(R"(P([01])\[([^\]]*)\])");
         auto it = std::sregex_iterator(content.begin(), content.end(), actionRe);
         auto end = std::sregex_iterator();
 
-        std::string pendingPiece;
+        // Grid tracker: (col_index, row) → stack of piece names
+        std::map<std::pair<int,int>, std::vector<std::string>> gridStacks;
+        std::map<std::string, std::pair<int,int>> pieceGrid; // piece name → grid pos
+
+        auto gridPlace = [&](const std::string& piece, int col, int row) {
+            auto key = std::make_pair(col, row);
+            gridStacks[key].push_back(piece);
+            pieceGrid[piece] = key;
+        };
+        auto gridRemove = [&](const std::string& piece) {
+            auto pit = pieceGrid.find(piece);
+            if (pit == pieceGrid.end()) return;
+            auto key = pit->second;
+            auto& stk = gridStacks[key];
+            // Remove piece from stack (should be on top)
+            for (auto sit = stk.rbegin(); sit != stk.rend(); ++sit) {
+                if (*sit == piece) { stk.erase(std::next(sit).base()); break; }
+            }
+            if (stk.empty()) gridStacks.erase(key);
+            pieceGrid.erase(pit);
+        };
+        auto gridTop = [&](int col, int row) -> std::string {
+            auto key = std::make_pair(col, row);
+            auto git = gridStacks.find(key);
+            if (git != gridStacks.end() && !git->second.empty())
+                return git->second.back();
+            return "";
+        };
+        auto parseCol = [](const std::string& s) -> int {
+            if (s.empty()) return 0;
+            return static_cast<int>(std::toupper(static_cast<unsigned char>(s[0]))) - 'A';
+        };
+
+        std::string turnMove;
+        int lastCommitPlayer = -1;
+        bool firstPlacement = true;
+
+        // Track grid changes within a turn so we can undo them on pickb
+        struct GridOp { std::string piece; int col; int row; bool isAdd; };
+        std::vector<GridOp> turnGridOps;
 
         for (; it != end; ++it) {
             int player = ((*it)[1].str() == "0") ? 0 : 1;
@@ -166,11 +212,22 @@ namespace Hive::Learning {
             auto tokens = tokenize(actionStr);
             if (tokens.size() < 2) continue;
 
-            // Case-insensitive action matching (old format uses lowercase)
             std::string action = toLowerStr(tokens[1]);
 
-            if (action == "start" || action == "done" || action == "edit") {
-                pendingPiece.clear();
+            if (action == "start" || action == "edit") {
+                continue;
+            }
+
+            if (action == "done") {
+                if (!turnMove.empty()) {
+                    if (lastCommitPlayer >= 0 && player == lastCommitPlayer) {
+                        info.moves.push_back("pass");
+                    }
+                    info.moves.push_back(turnMove);
+                    lastCommitPlayer = player;
+                    turnMove.clear();
+                }
+                turnGridOps.clear();
                 continue;
             }
 
@@ -179,38 +236,51 @@ namespace Hive::Learning {
             }
 
             if (action == "pass") {
-                info.moves.push_back("pass");
+                turnMove = "pass";
                 continue;
             }
 
-            // Pick: [seq, "pick", color, handIdx, pieceId]
             if (action == "pick") {
-                if (tokens.size() >= 5) {
-                    pendingPiece = addColorPrefix(tokens[4], player);
-                }
                 continue;
             }
 
-            // Pickb: [seq, "pickb", col, row, piece]
+            // Pickb: pick piece back from board
             if (action == "pickb") {
+                // tokens: [seq, "pickb", col, row, piece]
                 if (tokens.size() >= 5) {
-                    pendingPiece = addColorPrefix(tokens[4], player);
+                    std::string piece = addColorPrefix(tokens[4], player);
+                    gridRemove(piece);
+                    turnGridOps.push_back({piece, parseCol(tokens[2]), std::stoi(tokens[3]), false});
                 }
+                turnMove.clear();
                 continue;
             }
 
-            // Dropb / Pdropb: [seq, "dropb"/"pdropb", piece, col, row, ref]
+            // Dropb / Pdropb: [seq, "dropb", piece, col, row, ref]
             if (action == "dropb" || action == "pdropb") {
                 std::string piece = addColorPrefix(tokens[2], player);
-                if (tokens.size() >= 6) {
-                    std::string uhp = convertToUhp(piece, tokens[5]);
-                    if (!uhp.empty()) info.moves.push_back(uhp);
-                } else if (tokens.size() >= 5) {
-                    // No ref — first piece placement
-                    std::string uhp = convertToUhp(piece, ".");
-                    if (!uhp.empty()) info.moves.push_back(uhp);
+                int col = (tokens.size() >= 4) ? parseCol(tokens[3]) : 0;
+                int row = (tokens.size() >= 5) ? std::stoi(tokens[4]) : 0;
+                std::string ref = (tokens.size() >= 6) ? tokens[5] : ".";
+
+                if (ref == "." && !firstPlacement) {
+                    // Beetle stacking: find what's at (col, row)
+                    std::string topPiece = gridTop(col, row);
+                    if (!topPiece.empty()) {
+                        turnMove = piece + " " + topPiece;
+                    } else {
+                        turnMove = piece; // fallback
+                    }
+                } else if (ref == ".") {
+                    turnMove = piece; // first placement
+                    firstPlacement = false;
+                } else {
+                    turnMove = convertToUhp(piece, ref);
+                    if (firstPlacement) firstPlacement = false;
                 }
-                pendingPiece.clear();
+
+                gridPlace(piece, col, row);
+                turnGridOps.push_back({piece, col, row, true});
                 continue;
             }
 
@@ -218,14 +288,37 @@ namespace Hive::Learning {
             if (action == "move" || action == "pmove") {
                 if (tokens.size() >= 7) {
                     std::string piece = addColorPrefix(tokens[3], player);
-                    std::string uhp = convertToUhp(piece, tokens[6]);
-                    if (!uhp.empty()) info.moves.push_back(uhp);
+                    int col = parseCol(tokens[4]);
+                    int row = std::stoi(tokens[5]);
+                    std::string ref = tokens[6];
+
+                    // Remove piece from old position if it was on the board
+                    gridRemove(piece);
+
+                    if (ref == "." && !firstPlacement) {
+                        std::string topPiece = gridTop(col, row);
+                        if (!topPiece.empty()) {
+                            turnMove = piece + " " + topPiece;
+                        } else {
+                            turnMove = piece;
+                        }
+                    } else if (ref == ".") {
+                        turnMove = piece;
+                        firstPlacement = false;
+                    } else {
+                        turnMove = convertToUhp(piece, ref);
+                        if (firstPlacement) firstPlacement = false;
+                    }
+
+                    gridPlace(piece, col, row);
+                    turnGridOps.push_back({piece, col, row, true});
                 }
-                pendingPiece.clear();
                 continue;
             }
+        }
 
-            // Skip unknown actions
+        if (!turnMove.empty()) {
+            info.moves.push_back(turnMove);
         }
 
         return info;

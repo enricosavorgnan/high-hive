@@ -312,7 +312,9 @@ namespace Hive
         else if (piece.bug == Bug::Queen) str += "Q";
         else if (piece.bug == Bug::Spider) str += "S";
 
-        if (piece.id > 0) {
+        // Append id number for multi-instance bugs.
+        // Queen has only one instance and uses no suffix in UHP ("wQ", not "wQ1").
+        if (piece.id > 0 && piece.bug != Bug::Queen) {
             str += std::to_string(piece.id);
         }
         return str;
@@ -339,7 +341,9 @@ namespace Hive
                 default: ;
             }
         }
-        uint8_t id = (str.size() > 2) ? str[2]-'0' : 0;
+        // Pieces without a number suffix (e.g. "wQ") default to id=1,
+        // matching the hand where all pieces start at id=1.
+        uint8_t id = (str.size() > 2) ? str[2]-'0' : 1;
         return {color, bug, id};
     }
 
@@ -350,8 +354,8 @@ namespace Hive
         if (diff == Coord{-1, 0}) return "-" + neighName;
         if (diff == Coord{0, -1}) return "\\" + neighName;
         if (diff == Coord{0, 1}) return neighName + "\\";
-        if (diff == Coord{1, -1}) return "/" + neighName;
-        if (diff == Coord{-1, 1}) return neighName + "/";
+        if (diff == Coord{-1, 1}) return "/" + neighName;
+        if (diff == Coord{1, -1}) return neighName + "/";
         
         return ""; // No valid direction found
     } 
@@ -390,16 +394,19 @@ namespace Hive
     }
 
 
-    // Helper to find a piece's coordinate on the board by scanning occupied cells
+    // Helper to find a piece's coordinate on the board by scanning all stacks.
+    // Searches the full stack at each cell so that pieces covered by beetles
+    // can still be found as UHP references.
     bool findPieceOnBoard(const Board& board, const Piece& targetPiece, Coord& outCoord) {
         for (Coord c : board.occupiedCoords()) {
-            // We only need to check the top of the stack for movement origins,
-            // but for references, UHP allows referencing covered pieces.
-            // Assuming the board's CellStack has a way to iterate or we just check the top for now.
-            const Piece* topPiece = board.top(c);
-            if (topPiece && topPiece->color == targetPiece.color && topPiece->bug == targetPiece.bug && topPiece->id == targetPiece.id) {
-                outCoord = c;
-                return true;
+            int idx = Board::AxToIndex(c);
+            int h = board.height(c);
+            for (int i = 0; i < h; ++i) {
+                const Piece& p = board.cellAt(idx)._data[i];
+                if (p.color == targetPiece.color && p.bug == targetPiece.bug && p.id == targetPiece.id) {
+                    outCoord = c;
+                    return true;
+                }
             }
         }
         return false;
@@ -434,10 +441,10 @@ namespace Hive
 
         // Map UHP relative position characters to your axial coordinate logic
         if (refStr.front() == '-') { offset = {-1, 0}; refPieceStr = refStr.substr(1); }
-        else if (refStr.front() == '/') { offset = {1, -1}; refPieceStr = refStr.substr(1); }
+        else if (refStr.front() == '/') { offset = {-1, 1}; refPieceStr = refStr.substr(1); }
         else if (refStr.front() == '\\') { offset = {0, -1}; refPieceStr = refStr.substr(1); }
         else if (refStr.back() == '-') { offset = {1, 0}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
-        else if (refStr.back() == '/') { offset = {-1, 1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
+        else if (refStr.back() == '/') { offset = {1, -1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
         else if (refStr.back() == '\\') { offset = {0, 1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
         else {
             // No prefix/suffix means placing directly ON TOP of the reference piece (Beetle/Mosquito)
