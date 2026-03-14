@@ -10,7 +10,7 @@ namespace Hive::Learning {
         : network_(std::move(network)) {}
 
     std::vector<TrainingSample> SelfPlay::playGame() {
-        GameState state;
+        State state;
         MCTS mcts(network_);
 
         // Samples collected during the game (before outcome is known)
@@ -35,7 +35,7 @@ namespace Hive::Learning {
                 // No legal moves — pass
                 Move passMove;
                 passMove.type = Move::Pass;
-                state.apply(passMove);
+                state.applyMove(passMove);
                 mcts.reset();
                 ++moveCount;
                 continue;
@@ -75,7 +75,7 @@ namespace Hive::Learning {
             // Apply selected move (compute action BEFORE apply — board state changes after)
             const Move& selectedMove = moveVisits[selectedIdx].first;
             int selectedAction = ActionEncoder::moveToAction(selectedMove, state);
-            state.apply(selectedMove);
+            state.applyMove(selectedMove);
 
             // Advance MCTS tree
             mcts.advanceTree(selectedAction);

@@ -237,7 +237,7 @@ namespace Hive::Learning {
         int winsA = 0, draws = 0;
 
         for (int game = 0; game < numGames; ++game) {
-            GameState state;
+            State state;
             // Alternate colors: even games modelA=White, odd games modelA=Black
             bool aIsWhite = (game % 2 == 0);
 
@@ -254,7 +254,7 @@ namespace Hive::Learning {
                 if (moveVisits.empty()) {
                     Move passMove;
                     passMove.type = Move::Pass;
-                    state.apply(passMove);
+                    state.applyMove(passMove);
                     activeMcts.reset();
                 } else {
                     // Select best move (no exploration during eval)
@@ -266,7 +266,7 @@ namespace Hive::Learning {
                     int bestIdx = MCTS::selectAction(visits, /*temperature=*/0.0f);
                     const Move& bestMove = moveVisits[bestIdx].first;
                     int bestAction = ActionEncoder::moveToAction(bestMove, state);
-                    state.apply(bestMove);
+                    state.applyMove(bestMove);
 
                     // Advance both trees (action computed before apply)
                     mctsA.advanceTree(bestAction);

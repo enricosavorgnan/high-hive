@@ -4,12 +4,13 @@
 #include "pieces.h"
 #include "rules.h"
 #include "moves.h"
+#include "generator.h"
 
 #include <cmath>
 
 namespace Hive::Learning {
 
-    std::pair<int, int> StateEncoder::computeCentroid(const GameState& state) {
+    std::pair<int, int> StateEncoder::computeCentroid(const State& state) {
         const auto& occupied = state.board().occupiedCoords();
         if (occupied.empty()) return {0, 0};
 
@@ -29,7 +30,7 @@ namespace Hive::Learning {
         return {gx, gy};
     }
 
-    torch::Tensor StateEncoder::encode(const GameState& state) {
+    torch::Tensor StateEncoder::encode(const State& state) {
         auto tensor = torch::zeros({NUM_CHANNELS, GRID_SIZE, GRID_SIZE});
         auto acc = tensor.accessor<float, 3>();
 
@@ -77,9 +78,8 @@ namespace Hive::Learning {
 
         // Channel 18: Legal placement targets
         {
-            std::vector<Piece> hand = state.getHand(me);
-            std::vector<Move> placements = RuleEngine::generateMoves(board, me, hand);
-            for (const auto& m : placements) {
+            auto allMoves = MoveGenerator::generateMoves(state);
+            for (const auto& m : allMoves) {
                 if (m.type == Move::Place) {
                     auto [gx, gy] = axialToGrid(m.to, centQ, centR);
                     if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
@@ -91,7 +91,7 @@ namespace Hive::Learning {
 
         // Channels 19-20: Queen adjacency (fraction of occupied neighbors)
         auto encodeQueenAdj = [&](Color c, int channel) {
-            if (!state.queenPlaced(c)) return;
+            if (!state.isQueenPlaced(c)) return;
 
             // Find queen
             for (const auto& coord : occupied) {
@@ -118,9 +118,9 @@ namespace Hive::Learning {
         encodeQueenAdj(opp, 20);
 
         // Channel 21: Articulation points (pieces that can't be lifted)
-        for (const auto& coord : occupied) {
-            int idx = Board::AxToIndex(coord);
-            if (!RuleEngine::isBoardConnected(board, idx)) {
+        {
+            auto artPoints = RuleEngine::getArticulationPoints(board);
+            for (const auto& coord : artPoints) {
                 auto [gx, gy] = axialToGrid(coord, centQ, centR);
                 if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
                     acc[21][gy][gx] = 1.0f;

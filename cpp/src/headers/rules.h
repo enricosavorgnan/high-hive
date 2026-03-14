@@ -3,38 +3,27 @@
 #include "board.h"
 #include "moves.h"
 #include <vector>
-
-// RULES DECLARATION
-// The file declares the methods for retrieving the possible moves
-// TODO: Implement generateMoves, generatePlacements, generateMovements
-// TODO: Improve function declaration and description here in the header
+#include <unordered_set>
+#include <optional>
 
 namespace Hive {
 
     class RuleEngine {
         public:
-            // Method that internally calls generatePlacements and generateMovements and returns all the moves found
-            static std::vector<Move> generateMoves(const Board& board, Color turnPlayer, const std::vector<Piece>& hand);
+            // Checks if a piece can slide from one cell to another (Freedom to Move rule)
+            static bool canSlide(const Board& board, Coord from, Coord to, std::optional<Coord> ignoreProp = std::nullopt);
 
-            // Method aimed to retrieve whether a piece can move from coordinate fromIdx to coordinate toIdx
-            // Returns True if the move is valid, otherwise False
-            static bool canSlide(const Board& board, int fromIdx, int toIdx);
-        
-        private:
-            // Method for checking the One Hive Rule, i.e.,for retrieving whether a board is connected if a piece at coordinate idx is removed.
-            // ATTENTION: Runs a BFS under-the-hood. It is slow.
-            //
-            // Returns True if:
-            // - Size of the tile at index idx is >= 2 return True.
-            // - Piece at index idx is a leaf in the graph, return True.
-            // - All neighbors are visited in BFS, return True.
-            // Otherwise, returns False
-            static bool isBoardConnected(const Board& board, int idx);
+            // Checks if a cell touches the hive (has at least one occupied neighbor, ignoring prop)
+            static bool touchesHive(const Board& board, Coord target, Coord prop);
 
-            // TODO
-            static std::vector<Move> generatePlacements(const Board& board, Color player, const std::vector<Piece>& hand);
-            // TODO
-            static std::vector<Move> generateMovements(const Board& board, Color player); 
+            // One Hive check: board stays connected if piece at coord is removed
+            static bool isBoardConnected(const Board& board, Coord coord);
+
+            // Tarjan's algorithm: find all articulation points
+            static std::unordered_set<Coord, CoordHash> getArticulationPoints(const Board& board);
+
+            // Check if a piece can be lifted (stacked or not an articulation point)
+            static bool canLiftPiece(const Board& board, Coord coord, const std::unordered_set<Coord, CoordHash>& articulationPoints);
     };
 
 }

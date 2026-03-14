@@ -3,6 +3,7 @@
 #include "coords.h"
 #include "pieces.h"
 #include "utils.h"
+#include "generator.h"
 
 namespace Hive::Learning {
 
@@ -93,7 +94,7 @@ namespace Hive::Learning {
         return 0; // fallback
     }
 
-    int ActionEncoder::moveToAction(const Move& move, const GameState& state) {
+    int ActionEncoder::moveToAction(const Move& move, const State& state) {
         if (move.type == Move::Pass) {
             // Pass is encoded as action 0 (will be masked appropriately)
             return 0;
@@ -108,7 +109,7 @@ namespace Hive::Learning {
             // otherwise find the direction to the nearest neighbor
             dirIdx = 6; // Placement uses direction 6 as convention
             refIdx = findRefPieceIndex(board, move.to, Coord{-999, -999});
-        } else { // PieceMove
+        } else { // PieceMove or Drag (Pillbug)
             srcIdx = pieceToIndex(move.piece);
             dirIdx = directionIndex(move.from, move.to, board);
             refIdx = findRefPieceIndex(board, move.to, move.from);
@@ -117,7 +118,7 @@ namespace Hive::Learning {
         return dirIdx * NUM_PIECE_TYPES * NUM_PIECE_TYPES + srcIdx * NUM_PIECE_TYPES + refIdx;
     }
 
-    Move ActionEncoder::actionToMove(int action, const GameState& state) {
+    Move ActionEncoder::actionToMove(int action, const State& state) {
         int refIdx = action % NUM_PIECE_TYPES;
         action /= NUM_PIECE_TYPES;
         int srcIdx = action % NUM_PIECE_TYPES;
@@ -176,11 +177,11 @@ namespace Hive::Learning {
         return m;
     }
 
-    torch::Tensor ActionEncoder::legalMask(const GameState& state) {
+    torch::Tensor ActionEncoder::legalMask(const State& state) {
         auto mask = torch::zeros({ACTION_SPACE});
         auto acc = mask.accessor<float, 1>();
 
-        auto moves = state.legalMoves();
+        auto moves = MoveGenerator::generateMoves(state);
 
         for (const auto& move : moves) {
             int action = moveToAction(move, state);

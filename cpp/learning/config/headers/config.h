@@ -1,8 +1,35 @@
 #pragma once
 
+#include "pieces.h"
+
 // All hyperparameters for the AlphaZero learning pipeline.
 
 namespace Hive::Learning {
+
+    // --- Bug type helpers (for encoding) ---
+    constexpr int NUM_BUG_TYPES = 8;
+
+    constexpr int bugIndex(Bug b) {
+        switch (b) {
+            case Bug::Queen:       return 0;
+            case Bug::Beetle:      return 1;
+            case Bug::Spider:      return 2;
+            case Bug::Grasshopper: return 3;
+            case Bug::Ant:         return 4;
+            case Bug::Ladybug:     return 5;
+            case Bug::Mosquito:    return 6;
+            case Bug::Pillbug:     return 7;
+        }
+        return 0;
+    }
+
+    constexpr Bug bugFromIndex(int i) {
+        constexpr Bug mapping[] = {
+            Bug::Queen, Bug::Beetle, Bug::Spider, Bug::Grasshopper,
+            Bug::Ant, Bug::Ladybug, Bug::Mosquito, Bug::Pillbug
+        };
+        return mapping[i];
+    }
 
     // --- Board encoding ---
     constexpr int GRID_SIZE = 26;           // Spatial dimension of the encoded board

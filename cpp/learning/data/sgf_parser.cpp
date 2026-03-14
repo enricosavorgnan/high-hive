@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "rules.h"
 #include "moves.h"
+#include "generator.h"
 
 #include <fstream>
 #include <sstream>
@@ -284,7 +285,7 @@ namespace Hive::Learning {
             Color toMove;
         };
         std::vector<PendingSample> pending;
-        GameState state;
+        State state;
 
         for (const auto& sgfMove : game.moves) {
             std::string uhpMove = sgfMoveToUhp(sgfMove);
@@ -301,12 +302,12 @@ namespace Hive::Learning {
                 ps.toMove = state.toMove();
                 pending.push_back(std::move(ps));
 
-                state.apply(passMove);
+                state.applyMove(passMove);
                 continue;
             }
 
             // Get legal moves to validate
-            auto legalMoves = state.legalMoves();
+            auto legalMoves = MoveGenerator::generateMoves(state);
 
             // Parse the move
             Move move;
@@ -319,12 +320,17 @@ namespace Hive::Learning {
             // Validate: check if this move is in the legal moves
             bool isLegal = false;
             for (const auto& lm : legalMoves) {
-                if (lm.type == move.type && lm.to == move.to) {
-                    if (move.type == Move::Place && lm.piece.bug == move.piece.bug) {
+                if (lm.to == move.to) {
+                    if (lm.type == Move::Place && move.type == Move::Place && lm.piece.bug == move.piece.bug) {
                         isLegal = true;
                         move = lm;
                         break;
-                    } else if (move.type == Move::PieceMove && lm.from == move.from) {
+                    } else if (lm.type == Move::PieceMove && move.type == Move::PieceMove && lm.from == move.from) {
+                        isLegal = true;
+                        move = lm;
+                        break;
+                    } else if (lm.type == Move::Drag && move.type == Move::PieceMove && lm.from == move.from) {
+                        // Pillbug drag: SGF shows as regular move, engine uses Drag type
                         isLegal = true;
                         move = lm;
                         break;
@@ -347,7 +353,7 @@ namespace Hive::Learning {
             ps.toMove = state.toMove();
             pending.push_back(std::move(ps));
 
-            state.apply(move);
+            state.applyMove(move);
         }
 
         // If no RE tag, infer result from final board state (queen surrounded)

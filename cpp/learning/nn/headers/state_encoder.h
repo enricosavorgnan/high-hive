@@ -5,7 +5,7 @@
 #include "config/headers/config.h"
 
 // STATE ENCODER
-// Converts a GameState into a tensor of shape [NUM_CHANNELS, GRID_SIZE, GRID_SIZE]
+// Converts a State into a tensor of shape [NUM_CHANNELS, GRID_SIZE, GRID_SIZE]
 // for neural network input.
 //
 // The board is mapped from axial hex coordinates to a 26x26 grid, centered on the
@@ -29,11 +29,11 @@ namespace Hive::Learning {
     class StateEncoder {
     public:
         // Encode a game state into a tensor [NUM_CHANNELS, GRID_SIZE, GRID_SIZE]
-        static torch::Tensor encode(const GameState& state);
+        static torch::Tensor encode(const State& state);
 
     private:
         // Compute the centroid of the hive for centering the grid
-        static std::pair<int, int> computeCentroid(const GameState& state);
+        static std::pair<int, int> computeCentroid(const State& state);
 
         // Map axial coordinate to grid position, centered on centroid
         static std::pair<int, int> axialToGrid(Coord coord, int centQ, int centR);

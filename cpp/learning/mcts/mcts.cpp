@@ -1,4 +1,5 @@
 #include "mcts/headers/mcts.h"
+#include "generator.h"
 
 #include <algorithm>
 #include <cmath>
@@ -33,7 +34,7 @@ namespace Hive::Learning {
         root_ = std::make_unique<MCTSNode>();
     }
 
-    std::vector<std::pair<Move, int>> MCTS::search(GameState& state, bool addNoise) {
+    std::vector<std::pair<Move, int>> MCTS::search(State& state, bool addNoise) {
         // Ensure root is initialized
         if (!root_) {
             root_ = std::make_unique<MCTSNode>();
@@ -64,7 +65,7 @@ namespace Hive::Learning {
     }
 
     std::vector<std::pair<Move, int>> MCTS::searchWithBudget(
-            GameState& state,
+            State& state,
             std::chrono::milliseconds budget,
             bool addNoise) {
         // Ensure root is initialized
@@ -97,17 +98,17 @@ namespace Hive::Learning {
         return results;
     }
 
-    void MCTS::simulate(GameState& state) {
+    void MCTS::simulate(State& state) {
         // 1. SELECT: traverse tree following PUCT until we reach a leaf
         MCTSNode* node = root_.get();
-        std::vector<UndoInfo> undos;
+        int depth = 0;
 
         while (node->isExpanded && !node->isTerminal) {
             node = node->selectChild();
             if (!node) break;
 
-            // Apply the cached move directly (no legalMoves() regeneration)
-            undos.push_back(state.apply(node->move));
+            state.applyMove(node->move);
+            ++depth;
         }
 
         // 2. EXPAND & EVALUATE
@@ -124,12 +125,12 @@ namespace Hive::Learning {
         backpropagate(node, value);
 
         // Undo all moves
-        for (auto it = undos.rbegin(); it != undos.rend(); ++it) {
-            state.undo(*it);
+        for (int i = 0; i < depth; ++i) {
+            state.undoLastMove();
         }
     }
 
-    float MCTS::expand(MCTSNode* node, GameState& state) {
+    float MCTS::expand(MCTSNode* node, State& state) {
         node->isExpanded = true;
 
         // Check terminal state
@@ -141,7 +142,7 @@ namespace Hive::Learning {
             return node->terminalValue;
         }
 
-        auto legalMoves = state.legalMoves();
+        auto legalMoves = MoveGenerator::generateMoves(state);
         if (legalMoves.empty()) {
             // No legal moves — pass
             node->isTerminal = false;

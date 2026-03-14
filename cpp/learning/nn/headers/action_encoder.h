@@ -26,13 +26,13 @@ namespace Hive::Learning {
     class ActionEncoder {
     public:
         // Convert a Move to an action index
-        static int moveToAction(const Move& move, const GameState& state);
+        static int moveToAction(const Move& move, const State& state);
 
         // Convert an action index back to a Move
-        static Move actionToMove(int action, const GameState& state);
+        static Move actionToMove(int action, const State& state);
 
         // Generate a legal move mask tensor [ACTION_SPACE] (1.0 = legal, 0.0 = illegal)
-        static torch::Tensor legalMask(const GameState& state);
+        static torch::Tensor legalMask(const State& state);
 
         // Convert a piece to its index (0-27)
         static int pieceToIndex(const Piece& piece);

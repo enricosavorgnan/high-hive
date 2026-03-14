@@ -43,11 +43,11 @@ namespace Hive {
                 return {Move::Pass, {Color::White, Bug::Ant, 0}, {0, 0}, {0, 0}};
             }
 
-            // Reconstruct GameState from board + turn info
-            // (In a full integration, the UhpHandler would maintain a GameState directly)
-            GameState state;
+            // Reconstruct State from board + turn info
+            // (In a full integration, the UhpHandler would maintain a State directly)
+            State state;
             // For now, we build a minimal state from the board
-            // This is a simplification — ideally the GameState is passed through
+            // This is a simplification — ideally the State is passed through
             state.board() = board;
 
             // Run time-budgeted MCTS search (4500ms = 500ms safety margin)
