@@ -272,8 +272,8 @@ Some legacy methods are kept (despite never being called by the UHP bot):
 
 More in the specific:
 1. `canSlide` \
-   The idea: a piece can move from a coordinate `from` to an **adjacent** coordinate `target` if the two "gates" (i.e. the two common neighbors of the coordinates `from` and `target`) have height less or equal to the one of the starting coordinate `from`.
-   The method accepts also an optional parameter `ignoreCoord` that is used in case is needed to not consider the piece currently in a tile at that coordinate for the calculation of the height: it is the case, for example, of a ladybug move, which cannot move "cycling" between its previous positions.
+   The idea: a piece can move from a coordinate `from` to an **adjacent** coordinate `target` if the two "gates" (i.e. the two common neighbors of the coordinates `from` and `target`) have height less or equal to the one of the starting coordinate `from`. \
+   The method accepts also an optional parameter `ignoreCoord` that is used in case is needed to not consider the piece currently in a tile at that coordinate for the calculation of the height: it is the case, for example, of a ladybug move, which cannot move "cycling" between its previous positions. \
    The steps of the method are the following : 
    - A list of the adjacent neighbors is retrieved using the `neighborAdjacent` method defined into `coords.h`.
    - A lambda function for retrieving the height of the tiles at coordinates `from` and `to` is implemented. It removes 1 to the height if the coordinate is the one to ignore `ignoreCoord`, while adds 1 if the coordinate is where actually the piece *is* standing.
@@ -296,7 +296,7 @@ More in the specific:
    - The articulation points set is returned.
    Notice how the DFS is performed only on the occupied coordinates, meaning that the complexity of the algorithm is $\mathcal{O}(V + E)$ where $V$ is the number of occupied coordinates and $E$ is the number of edges between them.
 5. `canLiftPiece` \
-   A piece can only leave its tile if: (i) the height of the tile is more than 1, meaning that the piece have some other bugs under it or (ii) the piece is not an articulation point. 
+   A piece can only leave its tile if: (i) the height of the tile is more than 1, meaning that the piece have some other bugs under it or (ii) the piece is not an articulation point. \
    A simple check on the height and on the presence in the set of the articulation points is performed.
 
 
@@ -327,12 +327,68 @@ The class `State`, as told, exposes some methods:
 5. `lastMovedPieceCoord ` : returns the coordinates of the last moved piece
 6. `hasInHand` : returns whether the hand of the `piece.color` color contains the given `piece`.
 7. `getUniqueAvailablePieces` : retrives the unique `bug` type (without the `id`) of the available pieces in hand of the player of the given `color`.
-8. `applyMove` : applies a given `move` and updates the history and the `state` parameters.
-   If the move is a *placement*, the `_{color}QueenPlaced` parameter is updated.
+8. `applyMove` : applies a given `move` and updates the history and the `state` parameters. \
+   If the move is a *placement*, the `_{color}QueenPlaced` parameter is updated. \
    If the move is a *movement* or a *drag* the `board.move` method is invoked.
 9. `undoLastMove` : uses the `lastMovedPieceCoord` as a target coordinate for moving the last moved piece (found in the `_history`). The other `state` parameters are updated.
 
 
 ### 3.9 The UHP Protocol
+The `uhp.cpp` and `utils.cpp` files represent the first layer between the entry point of the bot to the backend structure. 
+
 #### 3.9.1 The UHP Loop
+The `uhp.cpp` files is intended to extract the Mzinga referee commands and translate them into effective instructions to the backend.
+
+The commands supported are the following:
+1. `u1` \
+   Is the simple "check" whether the engine is ready or not. \
+   Prints "ok" into the `standard output`.
+2. `info` \
+   Is the initial "greeting" between the players. \
+   Prints the `id name version` of the bot, the expansions supported (`Mosquito;Ladybug;Pillbug`) and "ok".
+3. `newgame` \
+   Starts a new game, possibly applying some given moves to the state.
+4. `play` \
+   Sends the given move to the `state` and consequently to the backend architecture.
+5. `pass` \
+   Applies a pass move.
+6. `validmoves` \
+   Retrieves all the possible valid moves in the current specific situation.
+7. `bestmove` \
+   Computes the best move in the current specific situation given an amount of time (for the used referee, `time 00:00:05` is used as the only constraint).
+8. `undo` \
+   Undoes the last move.
+9. `options` \
+   Currently not supported yet.
+
+The UHP commands are never processed by the `uhp.cpp` file, but respective methods are called and calculations are performed by the backend structure.
+
 #### 3.9.2 The UHP Utils
+The `utils.cpp` file presents a list of utility functions that, more than everything, deal with the translation of a move of type `move` to an actual UHP move.
+
+The majority of the worked is computed by the `UhpCodec` class, that manages internally the `state` of the game and the `UhpBoard`; it also provide methods to convert moves to Uhp strings.
+A `UhpBoard` defines instead simple methods for dealing with an Uhp-compliant version of the board. The concept why it exists is a bit tricky, but the quick answer is that a board is needed to provide the correct Uhp strings for the moves.
+
+Regarding the `UhpBoard`, it consists of an unordered map of stacks of hashed coordinates containing each pieces written following the UHP-compliant structure, and an inverse unordered map mapping each piece to its coordinate.
+`UhpBoard` also provides the following private methods:
+- `maxIndexForBug` : returns the maximum index for each bug type.
+- `basePieceString` : maps each bug type to a specific string letter.
+And some public methods:
+- `occupied` : returns whether a given hexagonal coordinate is occupied.
+- `topName` : returns the string of the piece on top of the UhpBoard.
+- `hasPiece` : returns whether the `piecePos` has contains a given `pieceName` string.
+- `whereIs` :  retrieves the coordinates of the a given `pieceName` string.
+- `push`, `pop`, `moveTop` : for playing the moves.
+- `nextPieceName` : returns the lowest index of the unused pieces.
+
+The `UhpCodec` instead offers:
+- `parseRelativePositionToken` : UHP token to hexagonal coordinate
+- `desToRelativeToken` : hexagonal coordinate to UHP token
+- `parseUhpRequest` : string command to `ParsedRequest` struct
+- `moveToUhpString` : move to UHP token
+
+
+There also exist other utilities:
+- `trim` : trims a string
+- `split_ws` : splits a string on empty spaces
+- `splitCommand` : splits a line into chunks

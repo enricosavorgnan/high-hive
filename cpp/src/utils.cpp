@@ -19,6 +19,17 @@ namespace Hive
         return out;
     }
 
+    // Helper to split string by spaces to mimic Python's line.split()
+    std::vector<std::string> splitCommand(const std::string& line) {
+        std::vector<std::string> chunks;
+        std::istringstream stream(line);
+        std::string chunk;
+        while (stream >> chunk) {
+            chunks.push_back(chunk);
+        }
+        return chunks;
+    }
+
 
     // --- Anonymous Parsing Helpers ---
     namespace {
@@ -287,17 +298,8 @@ namespace Hive
     }
 
 
+    // ----- LEGACY METHODS ----
 
-    // Helper to split string by spaces to mimic Python's line.split()
-    std::vector<std::string> splitCommand(const std::string& line) {
-        std::vector<std::string> chunks;
-        std::istringstream stream(line);
-        std::string chunk;
-        while (stream >> chunk) {
-            chunks.push_back(chunk);
-        }
-        return chunks;
-    }
 
     std::string PieceToString(const Piece& piece)
     {
