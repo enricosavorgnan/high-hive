@@ -240,8 +240,11 @@ namespace Hive
 
         // Fallback: This should mathematically never trigger on a valid connected board unless it's the 1st piece
         auto occ = state.board().occupiedCoords();
-        if (!occ.empty()) {
-            if (const auto refNameOpt = uhpBoard.topName(occ[0])) return *refNameOpt + "-";
+        for (const Coord& c : occ) {
+            auto refNameOpt = uhpBoard.topName(c);
+            if (refNameOpt && (!ignoreOrigin.has_value() || c != *ignoreOrigin)) {
+                return *refNameOpt + "-";
+            }
         }
         return "wQ-";
     }

@@ -180,7 +180,12 @@ namespace Hive {
             // Extract the exact move string avoiding split manipulation errors
             std::string moveStr = line.substr(line.find(chunks[1]));
 
-            applyMove(moveStr, true);
+            bool success = applyMove(moveStr, true);
+
+            // CRITICAL: Catch and log alternate reality desyncs
+            if (!success) {
+                std::cerr << "[FATAL DESYNC] MoveGenerator failed to map Nokamute's move: " << moveStr << "\n";
+            }
 
             std::cout << generateGameString() << "\n";
         }
