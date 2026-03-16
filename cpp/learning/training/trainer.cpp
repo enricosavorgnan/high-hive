@@ -249,16 +249,10 @@ namespace Hive::Learning {
             return;
         }
 
-        // Count total samples across all batches
-        int totalSamples = 0;
-        for (const auto& prefix : batchPrefixes) {
-            torch::Tensor s;
-            torch::load(s, prefix + "_states.pt");
-            totalSamples += static_cast<int>(s.size(0));
-        }
-
         std::cout << "Pre-training from " << batchPrefixes.size() << " batch files, "
-                  << totalSamples << " total samples, " << epochs << " epochs\n";
+                  << epochs << " epochs\n";
+
+        constexpr int PRETRAIN_BATCH = 64; // smaller than BATCH_SIZE to fit on GPU
 
         model_->train();
 
@@ -288,8 +282,8 @@ namespace Hive::Learning {
                 auto perm = torch::randperm(n, torch::kLong);
 
                 // Mini-batch loop over this file
-                for (int offset = 0; offset + BATCH_SIZE <= n; offset += BATCH_SIZE) {
-                    auto idx = perm.slice(0, offset, offset + BATCH_SIZE);
+                for (int offset = 0; offset + PRETRAIN_BATCH <= n; offset += PRETRAIN_BATCH) {
+                    auto idx = perm.slice(0, offset, offset + PRETRAIN_BATCH);
                     auto batchStates = states.index_select(0, idx).to(device);
                     auto batchPolicies = policies.index_select(0, idx).to(device);
                     auto batchValues = values.index_select(0, idx).to(device);
