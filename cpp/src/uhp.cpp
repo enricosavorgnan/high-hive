@@ -165,7 +165,14 @@ namespace Hive {
                 else if (tokenIndex == 1) gameState = token;
                 else if (tokenIndex == 2) { /* Turn string - we infer this from moves applied */ }
                 else {
-                    applyMove(token, false); // Replay history onto the board
+                    if (!applyMove(token, false)) {
+                        std::cerr << "err Engine failed to parse history token: " << token << "\n";
+                        state = State(); // Wipe corrupted board
+                        uhpBoard.clear();
+                        moveHistory.clear();
+                        gameState = "NotStarted";
+                        return;
+                    }
                 }
                 tokenIndex++;
             }

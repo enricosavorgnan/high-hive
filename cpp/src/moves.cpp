@@ -104,6 +104,8 @@ namespace Hive::Moves {
 
 
     void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints) {
+        bool canLift = RuleEngine::canLiftPiece(board, prop, articulationPoints);
+
         // Mosquito on top of the hive: acts as a beetle
         if (board.height(prop) > 1) {
             getBeetleMoves(board, prop, targets);
@@ -137,16 +139,23 @@ namespace Hive::Moves {
                 if (!copiedBehaviors[bugTypeIdx]) {
                     copiedBehaviors[bugTypeIdx] = true;
 
-                    switch (neighborPiece->bug) {
-                        case Bug::Queen:       getQueenMoves(board, prop, tempTargets); break;
-                        case Bug::Beetle:      getBeetleMoves(board, prop, tempTargets); break;
-                        case Bug::Spider:      getSpiderMoves(board, prop, tempTargets); break;
-                        case Bug::Grasshopper: getGrasshopperMoves(board, prop, tempTargets); break;
-                        case Bug::Ant:         getAntMoves(board, prop, tempTargets); break;
-                        case Bug::Ladybug:     getLadybugMoves(board, prop, tempTargets); break;
-                        case Bug::Pillbug:     getPillbugMoves(board, prop, tempTargets,lastMovedPieceCoord, dragTargets, articulationPoints); break;
-                        default: break;
+                    if (canLift) {
+                        switch (neighborPiece->bug) {
+                            case Bug::Queen:       getQueenMoves(board, prop, tempTargets); break;
+                            case Bug::Beetle:      getBeetleMoves(board, prop, tempTargets); break;
+                            case Bug::Spider:      getSpiderMoves(board, prop, tempTargets); break;
+                            case Bug::Grasshopper: getGrasshopperMoves(board, prop, tempTargets); break;
+                            case Bug::Ant:         getAntMoves(board, prop, tempTargets); break;
+                            case Bug::Ladybug:     getLadybugMoves(board, prop, tempTargets); break;
+                            case Bug::Pillbug:     getQueenMoves(board, prop, tempTargets); break;
+                            default: break;
+                        }
                     }
+
+                    if (targetBug== Bug::Pillbug) {
+                        getPillbugDragMoves(board, prop, lastMovedPieceCoord, dragTargets, articulationPoints);
+                    }
+
                 }
             }
         }
@@ -202,7 +211,9 @@ namespace Hive::Moves {
 
     void getPillbugMoves(const Board &board, Coord prop, std::vector<Coord> &targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>> &dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints) {
         // The Pillbug's standard movement is exactly identical to the Queen (1 step, slide).
-        getQueenMoves(board, prop, targets);
+        if (RuleEngine::canLiftPiece(board, prop, articulationPoints)) {
+            getQueenMoves(board, prop, targets);
+        }
         // Special Drag move
         getPillbugDragMoves(board, prop, lastMovedPieceCoord, dragTargets, articulationPoints);
     }

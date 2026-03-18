@@ -120,12 +120,14 @@ namespace Hive {
                         break;
                     case Bug::Ladybug:     Moves::getLadybugMoves(board, origin, normalTargets); break;
                     case Bug::Pillbug:     break;
-                    case Bug::Mosquito:    Moves::getMosquitoMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints); break;
+                    case Bug::Mosquito:    break;
                 }
             }
 
             if (topPiece->bug == Bug::Pillbug) {
                 Moves::getPillbugMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
+            } else if (topPiece->bug == Bug::Mosquito) {
+                Moves::getMosquitoMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
             }
 
             for (const Coord& target : normalTargets) {

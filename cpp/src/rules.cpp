@@ -11,7 +11,7 @@ namespace Hive{
         // Lambda function needed for LadyBug moves
         auto vHeight = [&](Coord c, bool isCurrentlyHere) {
             int h = board.height(c);
-            if (c == ignoreCoord && ignoreCoord.has_value() ) h -= 1; // The bug physically left its origin
+            if (c == ignoreCoord && ignoreCoord.has_value() ) h = std::max(0, h-1); // The bug physically left its origin
             if (isCurrentlyHere) h += 1; // The bug is currently standing here
             return h;
         };
@@ -23,11 +23,13 @@ namespace Hive{
         // Calculate the peak transition height
         int maxHeight = std::max(hFrom, hTo + 1);
 
-        int hGate1 = vHeight(gates.first, false);
-        int hGate2 = vHeight(gates.second, false);
+        int heightGate1 = vHeight(gates.first, false);
+        int heightGate2 = vHeight(gates.second, false);
 
-        // The slide is blocked if BOTH gates are at or above the maximum transition height
-        return !(hGate1 >= maxHeight && hGate2 >= maxHeight);
+        // The slide is blocked if it lies on the ground (maxHeight==1) and both gates are EMPTY
+        if (maxHeight == 1 && heightGate1 == 0 && heightGate2 == 0) return false;
+        // The slide is also blocked if BOTH gates are at or above the maximum transition height
+        return !(heightGate1 >= maxHeight && heightGate2 >= maxHeight);
     }
 
 

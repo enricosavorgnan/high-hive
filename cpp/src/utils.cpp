@@ -246,7 +246,7 @@ namespace Hive
                 return *refNameOpt + "-";
             }
         }
-        return "wQ-";
+        return "err";
     }
 
     std::optional<ParsedRequest> UhpCodec::parseUhpRequest(const std::string& moveStr) const {
