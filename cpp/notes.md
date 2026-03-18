@@ -280,6 +280,7 @@ More in the specific:
    - The calculation of the height of the `from` and the `target` coordinate is performed. Only the max between the two is kept.
    - The calculation of the height of the two `gates` is performed.
    - The method returns `false` if both the gates have height higher than the height of the maximum between the `from` and the `target` coordinate.
+   - The method also returns `false` if during the slide both the gates are empty: it means that the movement implies the violation of the Continuous Contact slide rule!
 2. `touchesColor` \
    Just a simple for loop on the neighbors of the given hexagonal coordinate `coord` to check whether one of the neighbors have the preferred given `color`. 
 3. `touchesHive` \

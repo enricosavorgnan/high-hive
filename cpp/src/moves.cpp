@@ -247,7 +247,10 @@ namespace Hive::Moves {
             stack.pop_back();
 
             if (current.depth == 3) {
-                if (std::ranges::find(targets.begin(), targets.end(), current.c) == targets.end()) {
+                // if (std::ranges::find(targets.begin(), targets.end(), current.c) == targets.end()) {
+                //     targets.push_back(current.c);
+                // }
+                if (current.c != prop) {
                     targets.push_back(current.c);
                 }
                 continue;
@@ -259,11 +262,13 @@ namespace Hive::Moves {
                 if (!board.empty(n)) continue;
 
                 bool visited = false;
-                for(const auto& p : current.path) if(p == n) visited = true;
+                for(const auto& p : current.path) {
+                    if(p == n) {
+                        visited = true;
+                        break;
+                    }
+                }
                 if(visited) continue;
-
-                // Keep only neighbors that do not imply "jumps" in the hive!
-                if (n
 
                 if (!RuleEngine::canSlide(board, current.c, n, prop)) continue;
                 if (!RuleEngine::touchesHive(board, n, prop)) continue;
@@ -273,6 +278,12 @@ namespace Hive::Moves {
                 stack.push_back({n, current.depth + 1, nextPath});
             }
         }
+
+        std::ranges::sort(targets, [](const Coord& a, const Coord& b) {
+            if (a.q != b.q) return a.q < b.q;
+            return a.r < b.r;
+        });
+        targets.erase(std::ranges::unique(targets).begin(), targets.end());
     }
 
 
