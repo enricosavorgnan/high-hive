@@ -217,7 +217,8 @@ def play_game(white_image, black_image, white_gpu=None, black_gpu=None):
 
 
 def get_db():
-    db = sqlite3.connect("games.db")
+    db_path = os.path.join(os.getcwd(), "referee", "databases", "games.db")
+    db = sqlite3.connect(db_path)
     db.executescript("""
     CREATE TABLE IF NOT EXISTS games (
         timestamp      text,
