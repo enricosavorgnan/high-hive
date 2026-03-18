@@ -262,6 +262,9 @@ namespace Hive::Moves {
                 for(const auto& p : current.path) if(p == n) visited = true;
                 if(visited) continue;
 
+                // Keep only neighbors that do not imply "jumps" in the hive!
+                if (n
+
                 if (!RuleEngine::canSlide(board, current.c, n, prop)) continue;
                 if (!RuleEngine::touchesHive(board, n, prop)) continue;
 
