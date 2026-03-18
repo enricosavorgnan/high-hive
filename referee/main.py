@@ -217,7 +217,7 @@ def play_game(white_image, black_image, white_gpu=None, black_gpu=None):
 
 
 def get_db():
-    db_path = os.path.join(os.getcwd(), "referee", "databases", "games.db")
+    db_path = os.path.join(os.getcwd(), "databases", "games.db")
     db = sqlite3.connect(db_path)
     db.executescript("""
     CREATE TABLE IF NOT EXISTS games (
@@ -235,17 +235,17 @@ def get_db():
 
 def play_tournament(match_list, white_gpu, black_gpu):
     for white, black in match_list:
-        with get_db() as db:
-            res = db.execute(
-                "SELECT timestamp FROM games WHERE white = ? AND black = ?",
-                [white, black]
-            )
-            if res.fetchone() is not None:
-                logging.info(
-                    "match between %s and %s already played",
-                    white, black
-                )
-                continue
+        # with get_db() as db:
+        #     res = db.execute(
+        #         "SELECT timestamp FROM games WHERE white = ? AND black = ?",
+        #         [white, black]
+        #     )
+        #     if res.fetchone() is not None:
+        #         logging.info(
+        #             "match between %s and %s already played",
+        #             white, black
+        #         )
+        #         continue
 
         date = datetime.datetime.now().isoformat()
         logging.info(
@@ -293,8 +293,11 @@ if __name__ == "__main__":
     parser.add_argument("--games", default="tournament.txt")
     parser.add_argument("--white-gpu")
     parser.add_argument("--black-gpu")
+    parser.add_argument("--runs")
 
     args = parser.parse_args()
 
-    match_list = load_tournament(args.games)
-    play_tournament(match_list, args.white_gpu, args.black_gpu)
+    for i in range(int(args.runs) if args.runs else 1):
+        print(f"Running game {i+1}/{int(args.runs) if args.runs else 1}")
+        match_list = load_tournament(args.games)
+        play_tournament(match_list, args.white_gpu, args.black_gpu)
