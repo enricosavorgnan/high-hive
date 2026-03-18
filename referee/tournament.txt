@@ -1,7 +1,3 @@
-#mzinga,mzinga-cpp
-#mzinga-cpp,mzinga
-#nokamute,mzinga
-#mzinga,nokamute
-#mzinga-cpp,nokamute
-#nokamute,mzinga-cpp
+#Available engines
+#mzinga,mzinga-cpp,nokamute
 high-hive-cpp,high-hive-cpp

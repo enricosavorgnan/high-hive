@@ -111,13 +111,14 @@ namespace Hive {
                     case Bug::Spider:      Moves::getSpiderMoves(board, origin, normalTargets); break;
                     case Bug::Grasshopper: Moves::getGrasshopperMoves(board, origin, normalTargets); break;
                     case Bug::Ant:
-                        if (antTargets.empty()) {
-                            Moves::getAntMoves(board, origin, normalTargets);
-                            antTargets = normalTargets;
-                        } else {
-                            normalTargets = antTargets;
-                        }
-                        break;
+                        // if (antTargets.empty()) {
+                        //     Moves::getAntMoves(board, origin, normalTargets);
+                        //     antTargets = normalTargets;
+                        // } else {
+                        //     normalTargets = antTargets;
+                        // }
+                        // break;
+                        Moves::getAntMoves(board, origin, normalTargets);
                     case Bug::Ladybug:     Moves::getLadybugMoves(board, origin, normalTargets); break;
                     case Bug::Pillbug:     break;
                     case Bug::Mosquito:    break;

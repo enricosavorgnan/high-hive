@@ -297,7 +297,15 @@ namespace Hive
             if (const auto coveredNameOpt = uhpBoard.topName(m.to)) return moverName + " " + *coveredNameOpt;
         }
 
-        return moverName + " " + destToRelativeToken(m.to, m.from);
+
+        // If the bug is elevated (e.g. beetle), the tile remains occupied by the piece below
+        // and is a valid UHP reference
+        const bool originRemainsOccupied = (state.board().height(m.from) >= 2);
+        std::optional<Coord> ignoreOrigin = originRemainsOccupied
+            ? std::nullopt
+            : std::optional<Coord>(m.from);
+
+        return moverName + " " + destToRelativeToken(m.to, ignoreOrigin);
     }
 
 

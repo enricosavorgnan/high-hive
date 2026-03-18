@@ -140,7 +140,7 @@ namespace Hive::Moves {
                     copiedBehaviors[bugTypeIdx] = true;
 
                     if (canLift) {
-                        switch (neighborPiece->bug) {
+                        switch (targetBug) {
                             case Bug::Queen:       getQueenMoves(board, prop, tempTargets); break;
                             case Bug::Beetle:      getBeetleMoves(board, prop, tempTargets); break;
                             case Bug::Spider:      getSpiderMoves(board, prop, tempTargets); break;

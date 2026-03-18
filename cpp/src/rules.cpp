@@ -27,7 +27,7 @@ namespace Hive{
         int heightGate2 = vHeight(gates.second, false);
 
         // The slide is blocked if it lies on the ground (maxHeight==1) and both gates are EMPTY
-        if (maxHeight == 1 && heightGate1 == 0 && heightGate2 == 0) return false;
+        // if (maxHeight == 1 && heightGate1 == 0 && heightGate2 == 0) return false;
         // The slide is also blocked if BOTH gates are at or above the maximum transition height
         return !(heightGate1 >= maxHeight && heightGate2 >= maxHeight);
     }
@@ -60,10 +60,9 @@ namespace Hive{
 
 
     std::unordered_set<Coord, CoordHash> RuleEngine::getArticulationPoints(const Board& board) {
+        std::unordered_set<Coord, CoordHash> articulationPoints;
         const std::vector<Coord>& verts = board.occupiedCoords();
         int n = static_cast<int>(verts.size());
-
-        std::unordered_set<Coord, CoordHash> articulationPoints;
         if (n <= 1) return articulationPoints;
 
         // 1. Map Coordinates to 1D array indices [0...n-1] for the DFS algorithm
