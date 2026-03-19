@@ -2,8 +2,11 @@
 #include <unordered_set>
 #include <deque>
 #include <algorithm>
+#include <fstream>
+#include <iostream>
 
 #include "rules.h"
+
 
 namespace Hive::Moves {
 
@@ -21,18 +24,15 @@ namespace Hive::Moves {
             Coord curr = queue.front();
             queue.pop_front();
 
-            if (curr != prop) {
-                targets.push_back(curr);
-            }
+            if (curr != prop) targets.push_back(curr);
 
-            auto neighbors = coordNeighbors(curr);
-
-            for (const auto& n : neighbors) {
+            for (const auto& n : coordNeighbors(curr)) {
                 if (board.empty(n) && !visited.contains(n)) {
-                    if (RuleEngine::canSlide(board, curr, n, prop) && RuleEngine::touchesHive(board, n, prop)) {
+                    if (RuleEngine::canSlide(board, curr, n, prop)
+                     && RuleEngine::touchesHive(board, n, prop)) {
                         visited.insert(n);
                         queue.push_back(n);
-                    }
+                     }
                 }
             }
         }

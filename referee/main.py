@@ -53,7 +53,10 @@ def send_message(msg, process):
 
 def start_container(name, image_name="mzinga", gpu_id=None):
     gpu_string = f"--gpus {gpu_id}" if gpu_id is not None else ""
-    cmd = f"docker run --name {name} -i --rm {gpu_string} {image_name}"
+    log_dir = os.path.join(os.getcwd(), "logs").replace("\\", "/") # Docker on Windows doesn't like backslashes in volume paths
+    os.makedirs(log_dir, exist_ok=True)
+
+    cmd = f"docker run --name {name} -i --rm {gpu_string} -v {log_dir}:/logs -e ENGINE_NAME={name} {image_name}"
     logging.debug("running: `%s`", cmd)
     child = sp.Popen(
         shlex.split(cmd),

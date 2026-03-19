@@ -11,8 +11,8 @@ namespace Hive{
         // Lambda function needed for LadyBug moves
         auto vHeight = [&](Coord c, bool isCurrentlyHere) {
             int h = board.height(c);
-            if (c == ignoreCoord && ignoreCoord.has_value() ) h = std::max(0, h-1); // The bug physically left its origin
-            if (isCurrentlyHere) h += 1; // The bug is currently standing here
+            if (c == ignoreCoord && ignoreCoord.has_value() ) h = std::max(0, h-1);    // The bug physically left its origin
+            if (isCurrentlyHere) h += 1;                                                    // If the bug is currently standing here
             return h;
         };
 

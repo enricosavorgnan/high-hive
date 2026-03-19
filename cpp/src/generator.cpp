@@ -90,9 +90,6 @@ namespace Hive {
         // Precompute articulation points O(V) once per game node
         std::unordered_set<Coord, CoordHash> articulationPoints = RuleEngine::getArticulationPoints(board);
 
-        // Cache Ant moves
-        std::vector<Coord> antTargets;
-
         // Loop over the occupied coordinates into the board
         for (const Coord& origin : board.occupiedCoords()) {
             const Piece* topPiece = board.top(origin);
@@ -110,15 +107,7 @@ namespace Hive {
                     case Bug::Beetle:      Moves::getBeetleMoves(board, origin, normalTargets); break;
                     case Bug::Spider:      Moves::getSpiderMoves(board, origin, normalTargets); break;
                     case Bug::Grasshopper: Moves::getGrasshopperMoves(board, origin, normalTargets); break;
-                    case Bug::Ant:
-                        // if (antTargets.empty()) {
-                        //     Moves::getAntMoves(board, origin, normalTargets);
-                        //     antTargets = normalTargets;
-                        // } else {
-                        //     normalTargets = antTargets;
-                        // }
-                        // break;
-                        Moves::getAntMoves(board, origin, normalTargets);
+                    case Bug::Ant:         Moves::getAntMoves(board, origin, normalTargets); break;
                     case Bug::Ladybug:     Moves::getLadybugMoves(board, origin, normalTargets); break;
                     case Bug::Pillbug:     break;
                     case Bug::Mosquito:    break;
