@@ -17,6 +17,7 @@ int main(int argc, char* argv[]) {
     std::string checkpointDir = "checkpoints/";
     std::string batchDir = "pretrain_batches/";
     int skipFiles = 0;
+    int startEpoch = 0;
     bool parseOnly = false;
     bool trainOnly = false;
 
@@ -33,6 +34,8 @@ int main(int argc, char* argv[]) {
             batchDir = argv[++i];
         } else if (arg == "--skip-files" && i + 1 < argc) {
             skipFiles = std::stoi(argv[++i]);
+        } else if (arg == "--start-epoch" && i + 1 < argc) {
+            startEpoch = std::stoi(argv[++i]);
         } else if (arg == "--parse-only") {
             parseOnly = true;
         } else if (arg == "--train-only") {
@@ -44,6 +47,7 @@ int main(int argc, char* argv[]) {
                       << "  --checkpoint-dir D  Checkpoint directory (default: checkpoints/)\n"
                       << "  --batch-dir D       Directory for batch files (default: pretrain_batches/)\n"
                       << "  --skip-files N      Skip first N SGF files (for resuming)\n"
+                      << "  --start-epoch N     Resume training from epoch N (loads checkpoint)\n"
                       << "  --parse-only        Only parse SGF files, don't train\n"
                       << "  --train-only        Only train from existing batch files, don't parse\n";
             return 0;
@@ -87,7 +91,7 @@ int main(int argc, char* argv[]) {
     }
 
     Trainer trainer(model, checkpointDir);
-    trainer.pretrainFromDisk(batchDir, epochs);
+    trainer.pretrainFromDisk(batchDir, epochs, startEpoch);
 
     std::cout << "\nPre-training complete. Checkpoint saved to " << checkpointDir << "\n";
 

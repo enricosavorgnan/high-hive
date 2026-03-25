@@ -44,7 +44,7 @@ namespace Hive::Learning {
         void pretrain(const std::vector<TrainingSample>& data, int epochs = PRETRAIN_EPOCHS);
 
         // Supervised pre-training from batch files on disk (for large datasets)
-        void pretrainFromDisk(const std::string& batchDir, int epochs = PRETRAIN_EPOCHS);
+        void pretrainFromDisk(const std::string& batchDir, int epochs = PRETRAIN_EPOCHS, int startEpoch = 0);
 
         // Save model checkpoint
         void saveCheckpoint(const std::string& name);
