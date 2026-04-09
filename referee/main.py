@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import os
 import sqlite3
 import argparse
+import yaml
 
 logging.basicConfig(level=logging.INFO)
 
@@ -79,7 +80,7 @@ class Outcome(Enum):
 
 
 @dataclass
-class GameOucome(object):
+class GameOutcome(object):
     outcome: Outcome
     reason: str
     game_string: str
@@ -109,7 +110,7 @@ def do_play_game(referee, white, black):
         try:
             move = read_message(current, timeout=MOVE_TIMEOUT_S + 1)
         except:
-            return GameOucome(
+            return GameOutcome(
                 Outcome.BLACK_WINS if is_white else Outcome.WHITE_WINS,
                 reason="timeout while recommending best move",
                 game_string=game_string,
@@ -120,14 +121,14 @@ def do_play_game(referee, white, black):
         ans = read_message(referee)
         if ans.startswith("invalidmove"):
             if is_white:
-                return GameOucome(
+                return GameOutcome(
                     Outcome.BLACK_WINS,
                     reason=f"white proposed invalid move: `{move}`",
                     game_string=game_string,
                     elapsed_s=time.time() - start_time,
                 )
             else:
-                return GameOucome(
+                return GameOutcome(
                     Outcome.WHITE_WINS,
                     reason=f"black proposed invalid move: `{move}`",
                     game_string=game_string,
@@ -141,7 +142,7 @@ def do_play_game(referee, white, black):
         if game_state in ["Draw", "WhiteWins", "BlackWins"]:
             outcome = Outcome(game_state)
             logging.info("The game ended: %s", outcome)
-            return GameOucome(
+            return GameOutcome(
                 outcome,
                 reason="normal ending",
                 game_string=game_string,
@@ -157,14 +158,14 @@ def do_play_game(referee, white, black):
                 # Se un giocatore genera un errore di protocollo nel processare una mossa valida...
                 # ... perde la partita.
                 if i == 0: # Era il bot bianco
-                    return GameOucome(
+                    return GameOutcome(
                         Outcome.BLACK_WINS,
                         reason=f"white failed to process valid move `{move}` with error: {e}",
                         game_string=game_string,
                         elapsed_s=time.time() - start_time,
                     )
                 else: # Era il bot nero
-                    return GameOucome(
+                    return GameOutcome(
                         Outcome.WHITE_WINS,
                         reason=f"black failed to process valid move `{move}` with error: {e}",
                         game_string=game_string,
@@ -172,21 +173,21 @@ def do_play_game(referee, white, black):
                     )
             if ans.startswith("invalidmove"):
                 if i == 0:
-                    return GameOucome(
+                    return GameOutcome(
                         Outcome.BLACK_WINS,
                         reason="unrecognized valid move by white",
                         game_string=game_string,
                         elapsed_s=time.time() - start_time,
                     )
                 else:
-                    return GameOucome(
+                    return GameOutcome(
                         Outcome.WHITE_WINS,
                         reason="unrecognized valid move by black",
                         game_string=game_string,
                         elapsed_s=time.time() - start_time,
                     )
 
-    return GameOucome(
+    return GameOutcome(
         Outcome.DRAW,
         reason="maxed out plies",
         game_string=game_string,
@@ -220,7 +221,7 @@ def play_game(white_image, black_image, white_gpu=None, black_gpu=None):
 
 
 def get_db():
-    db_path = os.path.join(os.getcwd(), "databases", "games.db")
+    db_path = os.path.join(os.getcwd(), "databases", "games_mzinga.db")
     db = sqlite3.connect(db_path)
     db.executescript("""
     CREATE TABLE IF NOT EXISTS games (
@@ -243,6 +244,7 @@ def play_tournament(match_list, white_gpu, black_gpu):
         #         "SELECT timestamp FROM games WHERE white = ? AND black = ?",
         #         [white, black]
         #     )
+        #
         #     if res.fetchone() is not None:
         #         logging.info(
         #             "match between %s and %s already played",
@@ -291,14 +293,42 @@ def load_tournament(path):
     return match_list
 
 
+def update_images(images_path : str):
+    """
+    Update Docker images for white and black players.
+    """
+    with open(images_path, 'r') as f:
+        config = yaml.safe_load(f)
+
+    for player in ['white', 'black']:
+        update_player = f"update_" + player
+        docker_player = f"docker_" + player
+        if config.get(update_player):
+            docker_command = config.get(docker_player)
+            logging.info(f"Updating {player} image with command: {docker_command}")
+            result = sp.run(docker_command, shell=True, capture_output=True, text=True)
+            if result.returncode == 0:
+                logging.info(f"Successfully updated {player} image: {result.stdout}")
+            else:
+                logging.error(f"Failed to update {player} image: {result.stderr}")
+
+    return
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("referhive")
     parser.add_argument("--games", default="tournament.txt")
     parser.add_argument("--white-gpu")
     parser.add_argument("--black-gpu")
     parser.add_argument("--runs")
+    parser.add_argument("--update-images", default="images.yaml")
 
     args = parser.parse_args()
+
+    if args.update_images:
+        print("Updating Docker images...")
+        update_images(args.update_images)
 
     for i in range(int(args.runs) if args.runs else 1):
         print(f"Running game {i+1}/{int(args.runs) if args.runs else 1}")

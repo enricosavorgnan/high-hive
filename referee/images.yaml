@@ -1,0 +1,11 @@
+# Build Images
+update_white: False
+update_black: False
+
+## Use GPUs
+#white_gpu: False
+#black_gpu: False
+
+# Docker Images Path
+docker_white: "docker build -i high-hive-cpp ."
+docker_black: "docker build -i high-hive-cpp ."

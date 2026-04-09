@@ -51,7 +51,7 @@ namespace Hive {
         return s;
     }
 
-    bool UhpHandler::applyMove(const std::string& moveStr, bool validate) {
+    int UhpHandler::applyMove(const std::string& moveStr, bool validate) {
         UhpCodec codec(state, uhpBoard);
         auto pr0pt = codec.parseUhpRequest(moveStr);
 
