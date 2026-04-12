@@ -19,11 +19,15 @@ namespace Hive {
 
     class AlphaZeroEngine : public Engine {
     public:
-        explicit AlphaZeroEngine(const std::string& modelPath, int simulations = Learning::MCTS_SIMS)
-            : simulations_(simulations) {
+        explicit AlphaZeroEngine(const std::string& modelPath, int budgetMs = 4500)
+            : budgetMs_(budgetMs) {
 
             network_ = Learning::HiveNet();
-            torch::load(network_, modelPath);
+
+            // Load to CPU first (checkpoint may have been saved on CUDA)
+            torch::serialize::InputArchive archive;
+            archive.load_from(modelPath, torch::kCPU);
+            network_->load(archive);
             network_->eval();
 
             if (torch::cuda::is_available()) {
@@ -34,32 +38,27 @@ namespace Hive {
             mcts_ = std::make_unique<Learning::MCTS>(network_);
         }
 
-        Move getBestMove(
-            const Board& board, Color turnPlayer,
-            const std::vector<Piece>& hand,
-            const std::vector<Move>& validMoves) override {
+        Move getBestMove(const State& state, const std::vector<Move>& validMoves) override {
 
             if (validMoves.empty()) {
                 return {Move::Pass, {Color::White, Bug::Ant, 0}, {0, 0}, {0, 0}};
             }
 
-            // Reconstruct State from board + turn info
-            // (In a full integration, the UhpHandler would maintain a State directly)
-            State state;
-            // For now, we build a minimal state from the board
-            // This is a simplification — ideally the State is passed through
-            state.board() = board;
+            // Copy state: MCTS applies/undoes moves during simulation
+            State mutableState = state;
 
-            // Run time-budgeted MCTS search (4500ms = 500ms safety margin)
+            // Fresh search each UHP call (no tree reuse across opponent turns)
+            mcts_->reset();
+
+            // Run time-budgeted MCTS search
             auto moveVisits = mcts_->searchWithBudget(
-                state, std::chrono::milliseconds(4500), /*addNoise=*/false);
+                mutableState, std::chrono::milliseconds(budgetMs_), /*addNoise=*/false);
 
             if (moveVisits.empty()) {
-                // Fallback to random
                 return validMoves[0];
             }
 
-            // Select best move (greedy)
+            // Select best move (greedy, temperature=0)
             std::vector<int> visits;
             visits.reserve(moveVisits.size());
             for (const auto& [m, v] : moveVisits) {
@@ -67,19 +66,13 @@ namespace Hive {
             }
 
             int bestIdx = Learning::MCTS::selectAction(visits, /*temperature=*/0.0f);
-            const Move& bestMove = moveVisits[bestIdx].first;
-
-            // Advance tree for next call
-            int bestAction = Learning::ActionEncoder::moveToAction(bestMove, state);
-            mcts_->advanceTree(bestAction);
-
-            return bestMove;
+            return moveVisits[bestIdx].first;
         }
 
     private:
         Learning::HiveNet network_{nullptr};
         std::unique_ptr<Learning::MCTS> mcts_;
-        int simulations_;
+        int budgetMs_;
     };
 
 } // namespace Hive

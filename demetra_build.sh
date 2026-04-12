@@ -17,7 +17,7 @@ apptainer exec --nv "$CONTAINER" bash -c "
     cd '$REPO_DIR/cpp'
     mkdir -p build && cd build
     cmake .. -DENABLE_LEARNING=ON -DCMAKE_PREFIX_PATH=/opt/libtorch
-    make -j\$(nproc) hive_pretrain
+    make -j\$(nproc) hive_pretrain uhp
 "
 
 echo "=== Build complete ==="

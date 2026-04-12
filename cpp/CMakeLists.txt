@@ -25,6 +25,9 @@ add_executable(uhp src/main.cpp)
 target_link_libraries(uhp PRIVATE hive_core)
 target_include_directories(uhp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/headers)
 
+# When learning is enabled, uhp can use AlphaZeroEngine via --model flag
+# (linking and define are added below in the ENABLE_LEARNING block)
+
 # --- Optional: Learning module (requires LibTorch) ---
 option(ENABLE_LEARNING "Build learning module (requires LibTorch)" OFF)
 
@@ -59,4 +62,9 @@ if(ENABLE_LEARNING)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/headers
         ${CMAKE_CURRENT_SOURCE_DIR}/learning
     )
+
+    # Enable AlphaZeroEngine in the UHP executable
+    target_link_libraries(uhp PRIVATE hive_learning)
+    target_include_directories(uhp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/learning)
+    target_compile_definitions(uhp PRIVATE ENABLE_LEARNING)
 endif()

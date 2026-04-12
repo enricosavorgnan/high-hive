@@ -20,11 +20,12 @@ namespace Hive {
         std::string generateGameString() const;
         bool applyMove(const std::string& moveStr, bool validate);
 
-        // The polymorphic engine instance, initialized as RandomEngine
+        // The polymorphic engine instance
         std::unique_ptr<Engine> engine = std::make_unique<RandomEngine>();
 
         public:
             UhpHandler() = default;
+            explicit UhpHandler(std::unique_ptr<Engine> eng) : engine(std::move(eng)) {}
             void loop();
             static void cmdU1();
             static void cmdInfo();

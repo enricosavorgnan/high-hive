@@ -224,10 +224,9 @@ namespace Hive {
             return;
         }
 
-        std::vector<Piece> availableHand = state.getUniqueAvailablePieces(state.toMove());
-        Move bestMove = engine->getBestMove(state.board(), state.toMove(), availableHand, validMoves);
+        Move bestMove = engine->getBestMove(state, validMoves);
 
-        std::cout << codec.moveToUhpString(bestMove) << "\n"; // Strict serialization
+        std::cout << codec.moveToUhpString(bestMove) << "\n";
         std::cout << "ok\n";
     }
 
