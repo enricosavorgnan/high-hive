@@ -19,7 +19,7 @@ namespace Hive {
 
     class AlphaZeroEngine : public Engine {
     public:
-        explicit AlphaZeroEngine(const std::string& modelPath, int budgetMs = 4500)
+        explicit AlphaZeroEngine(const std::string& modelPath, int budgetMs = 3500)
             : budgetMs_(budgetMs) {
 
             network_ = Learning::HiveNet();
