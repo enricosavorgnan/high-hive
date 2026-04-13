@@ -6,7 +6,20 @@ namespace Hive {
     // ----- !!!!! -----
     // Board as Array Implementations
     // ----- !!!!! -----
-    void BoardAsArray::place (Coord coord, Piece piece) {
+    void BoardAsArray::getOccupiedNeighbors(const Coord coord, std::vector<Coord>& out) const {
+        out.clear();
+        const int centerIdx = AxToIndex(coord);
+
+        for (int i = 0; i < 6; ++i) {
+            const int neighborIdx = centerIdx + NEIGHBORS[i];
+            if (!_grid[neighborIdx].empty()) {
+                out.push_back(coord + DIRECTIONS[i]);
+            }
+        }
+    }
+
+
+    void BoardAsArray::place (const Coord coord, const Piece piece) {
         int idx = AxToIndex(coord);
 
         if (_grid[idx].empty()) {
@@ -15,7 +28,7 @@ namespace Hive {
         _grid[idx].push(piece);
     }
 
-    Piece BoardAsArray::remove(Coord coord) {
+    Piece BoardAsArray::remove(const Coord coord) {
         const int idx = AxToIndex(coord);
         const Piece piece = _grid[idx].pop();
 
@@ -36,30 +49,19 @@ namespace Hive {
         place(to, piece);
     }
 
-    void BoardAsArray::getOccupiedNeighbors(const Coord coord, std::vector<Coord>& out) const {
-        out.clear();
-        const int centerIdx = AxToIndex(coord);
-
-        for (int i = 0; i < 6; ++i) {
-            const int neighborIdx = centerIdx + NEIGHBORS[i];
-            if (!_grid[neighborIdx].empty()) {
-                out.push_back(coord + DIRECTIONS[i]);
-            }
-        }
-    }
 
 
     // ----- !!!!! -----
     // Board as Unordered Map Implementations
     // ----- !!!!! -----
-    void BoardAsUnorderedMap::place(Coord coord, Piece piece) {
+    void BoardAsUnorderedMap::place(const Coord coord, const Piece piece) {
         if (empty(coord)) {
             _occupied_coords.push_back(coord);
         }
         cells_[coord].push_back(piece);
     }
 
-    Piece BoardAsUnorderedMap::remove(Coord coord) {
+    Piece BoardAsUnorderedMap::remove(const Coord coord) {
         auto& st = cells_.at(coord);
         Piece p = st.back();
         st.pop_back();

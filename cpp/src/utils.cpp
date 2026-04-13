@@ -19,6 +19,17 @@ namespace Hive
         return out;
     }
 
+    // Helper to split string by spaces to mimic Python's line.split()
+    std::vector<std::string> splitCommand(const std::string& line) {
+        std::vector<std::string> chunks;
+        std::istringstream stream(line);
+        std::string chunk;
+        while (stream >> chunk) {
+            chunks.push_back(chunk);
+        }
+        return chunks;
+    }
+
 
     // --- Anonymous Parsing Helpers ---
     namespace {
@@ -229,10 +240,13 @@ namespace Hive
 
         // Fallback: This should mathematically never trigger on a valid connected board unless it's the 1st piece
         auto occ = state.board().occupiedCoords();
-        if (!occ.empty()) {
-            if (const auto refNameOpt = uhpBoard.topName(occ[0])) return *refNameOpt + "-";
+        for (const Coord& c : occ) {
+            auto refNameOpt = uhpBoard.topName(c);
+            if (refNameOpt && (!ignoreOrigin.has_value() || c != *ignoreOrigin)) {
+                return *refNameOpt + "-";
+            }
         }
-        return "wQ-";
+        return "err";
     }
 
     std::optional<ParsedRequest> UhpCodec::parseUhpRequest(const std::string& moveStr) const {
@@ -283,21 +297,20 @@ namespace Hive
             if (const auto coveredNameOpt = uhpBoard.topName(m.to)) return moverName + " " + *coveredNameOpt;
         }
 
-        return moverName + " " + destToRelativeToken(m.to, m.from);
+
+        // If the bug is elevated (e.g. beetle), the tile remains occupied by the piece below
+        // and is a valid UHP reference
+        const bool originRemainsOccupied = (state.board().height(m.from) >= 2);
+        std::optional<Coord> ignoreOrigin = originRemainsOccupied
+            ? std::nullopt
+            : std::optional<Coord>(m.from);
+
+        return moverName + " " + destToRelativeToken(m.to, ignoreOrigin);
     }
 
 
+    // ----- LEGACY METHODS ----
 
-    // Helper to split string by spaces to mimic Python's line.split()
-    std::vector<std::string> splitCommand(const std::string& line) {
-        std::vector<std::string> chunks;
-        std::istringstream stream(line);
-        std::string chunk;
-        while (stream >> chunk) {
-            chunks.push_back(chunk);
-        }
-        return chunks;
-    }
 
     std::string PieceToString(const Piece& piece)
     {
@@ -312,9 +325,7 @@ namespace Hive
         else if (piece.bug == Bug::Queen) str += "Q";
         else if (piece.bug == Bug::Spider) str += "S";
 
-        // Append id number for multi-instance bugs.
-        // Queen has only one instance and uses no suffix in UHP ("wQ", not "wQ1").
-        if (piece.id > 0 && piece.bug != Bug::Queen) {
+        if (piece.id > 0) {
             str += std::to_string(piece.id);
         }
         return str;
@@ -341,9 +352,7 @@ namespace Hive
                 default: ;
             }
         }
-        // Pieces without a number suffix (e.g. "wQ") default to id=1,
-        // matching the hand where all pieces start at id=1.
-        uint8_t id = (str.size() > 2) ? str[2]-'0' : 1;
+        uint8_t id = (str.size() > 2) ? str[2]-'0' : 0;
         return {color, bug, id};
     }
 
@@ -354,8 +363,8 @@ namespace Hive
         if (diff == Coord{-1, 0}) return "-" + neighName;
         if (diff == Coord{0, -1}) return "\\" + neighName;
         if (diff == Coord{0, 1}) return neighName + "\\";
-        if (diff == Coord{-1, 1}) return "/" + neighName;
-        if (diff == Coord{1, -1}) return neighName + "/";
+        if (diff == Coord{1, -1}) return "/" + neighName;
+        if (diff == Coord{-1, 1}) return neighName + "/";
         
         return ""; // No valid direction found
     } 
@@ -394,19 +403,16 @@ namespace Hive
     }
 
 
-    // Helper to find a piece's coordinate on the board by scanning all stacks.
-    // Searches the full stack at each cell so that pieces covered by beetles
-    // can still be found as UHP references.
+    // Helper to find a piece's coordinate on the board by scanning occupied cells
     bool findPieceOnBoard(const Board& board, const Piece& targetPiece, Coord& outCoord) {
         for (Coord c : board.occupiedCoords()) {
-            int idx = Board::AxToIndex(c);
-            int h = board.height(c);
-            for (int i = 0; i < h; ++i) {
-                const Piece& p = board.cellAt(idx)._data[i];
-                if (p.color == targetPiece.color && p.bug == targetPiece.bug && p.id == targetPiece.id) {
-                    outCoord = c;
-                    return true;
-                }
+            // We only need to check the top of the stack for movement origins,
+            // but for references, UHP allows referencing covered pieces.
+            // Assuming the board's CellStack has a way to iterate or we just check the top for now.
+            const Piece* topPiece = board.top(c);
+            if (topPiece && topPiece->color == targetPiece.color && topPiece->bug == targetPiece.bug && topPiece->id == targetPiece.id) {
+                outCoord = c;
+                return true;
             }
         }
         return false;
@@ -441,10 +447,10 @@ namespace Hive
 
         // Map UHP relative position characters to your axial coordinate logic
         if (refStr.front() == '-') { offset = {-1, 0}; refPieceStr = refStr.substr(1); }
-        else if (refStr.front() == '/') { offset = {-1, 1}; refPieceStr = refStr.substr(1); }
+        else if (refStr.front() == '/') { offset = {1, -1}; refPieceStr = refStr.substr(1); }
         else if (refStr.front() == '\\') { offset = {0, -1}; refPieceStr = refStr.substr(1); }
         else if (refStr.back() == '-') { offset = {1, 0}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
-        else if (refStr.back() == '/') { offset = {1, -1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
+        else if (refStr.back() == '/') { offset = {-1, 1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
         else if (refStr.back() == '\\') { offset = {0, 1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
         else {
             // No prefix/suffix means placing directly ON TOP of the reference piece (Beetle/Mosquito)

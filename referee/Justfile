@@ -1,0 +1,17 @@
+report:
+    sqlite3 -column -header games.db < report.sql | less
+
+build-all:
+    just build-container mzinga
+    just build-container mzinga-cpp
+    just build-container nokamute
+
+run-container name:
+    just build-container {{name}}
+    docker run -i --rm {{name}}
+
+build-container name:
+    docker build -t {{name}} containers/{{name}}
+
+killall:
+    docker kill $(docker ps -sq)

@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
 
     Hive::UhpHandler uhp(std::move(engine));
 
-    uhp.cmdInfo();
+    Hive::UhpHandler::cmdInfo();
     std::cout << std::flush;
 
     uhp.loop();

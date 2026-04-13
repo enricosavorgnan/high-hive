@@ -1,6 +1,5 @@
 #pragma once
 
-#include "board.h"
 #include "moves.h"
 #include "rules.h"
 #include "state.h"

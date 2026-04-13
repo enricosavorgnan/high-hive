@@ -13,6 +13,9 @@ namespace Hive {
     // --- Basic String Utilities ---
     std::string trim(const std::string& s);
     std::vector<std::string> split_ws(const std::string& line);
+    // Util to split a UHP command into chunks
+    std::vector<std::string> splitCommand(const std::string& line);
+
 
     // --- UHP Translation Structures ---
     struct ParsedPieceName {
@@ -70,13 +73,10 @@ namespace Hive {
         [[nodiscard]] std::string moveToUhpString(const Move& m) const;
     };
 
-    // -----------------------------------------------------------------------
-    // ----- The following is currently LEGACY CODE and will soon delete -----
-    // -----------------------------------------------------------------------
 
-    // Util to split a UHP command into chunks
-    std::vector<std::string> splitCommand(const std::string& line);
-
+    // --------------------------
+    // ----- LEGACY METHODS -----
+    // --------------------------
     // Util to retrieve whether a piece is on the board or in hand
     bool findPieceOnBoard(const Board& board, const Piece& targetPiece, Coord& outCoord);
 
@@ -91,9 +91,6 @@ namespace Hive {
 
     // Converts a Move to a valid UHP string
     std::string MoveToString(const Move& move, const Board& board);
-
-    // Helper to find a piece's coordinate on the board by scanning occupied cells
-    bool findPieceOnBoard(const Board& board, const Piece& targetPiece, Coord& outCoord);
 
     // Converts a UHP move string to a Move
     Move StringToMove(const std::string& moveStr, const Board& board);

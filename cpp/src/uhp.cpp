@@ -51,7 +51,7 @@ namespace Hive {
         return s;
     }
 
-    bool UhpHandler::applyMove(const std::string& moveStr, bool validate) {
+    int UhpHandler::applyMove(const std::string& moveStr, bool validate) {
         UhpCodec codec(state, uhpBoard);
         auto pr0pt = codec.parseUhpRequest(moveStr);
 
@@ -138,7 +138,7 @@ namespace Hive {
     void UhpHandler::cmdU1() { std::cout << "ok\n"; }
 
     void UhpHandler::cmdInfo() {
-        std::cout << "id high-hive-engine v0.1\n";
+        std::cout << "id high-hive-cpp v0.1\n";
         std::cout << "Mosquito;Ladybug;Pillbug\n";
         std::cout << "ok\n";
     }
@@ -165,7 +165,14 @@ namespace Hive {
                 else if (tokenIndex == 1) gameState = token;
                 else if (tokenIndex == 2) { /* Turn string - we infer this from moves applied */ }
                 else {
-                    applyMove(token, false); // Replay history onto the board
+                    if (!applyMove(token, false)) {
+                        std::cerr << "err Engine failed to parse history token: " << token << "\n";
+                        state = State(); // Wipe corrupted board
+                        uhpBoard.clear();
+                        moveHistory.clear();
+                        gameState = "NotStarted";
+                        return;
+                    }
                 }
                 tokenIndex++;
             }
@@ -180,7 +187,12 @@ namespace Hive {
             // Extract the exact move string avoiding split manipulation errors
             std::string moveStr = line.substr(line.find(chunks[1]));
 
-            applyMove(moveStr, true);
+            bool success = applyMove(moveStr, true);
+
+            // CRITICAL: Catch and log alternate reality desyncs
+            if (!success) {
+                std::cerr << "[FATAL DESYNC] MoveGenerator failed to map Nokamute's move: " << moveStr << "\n";
+            }
 
             std::cout << generateGameString() << "\n";
         }

@@ -59,13 +59,13 @@ namespace Hive {
             }
 
             // Get the heighest top in the stack
-            const Piece& top() const {
+            [[nodiscard]] const Piece& top() const {
                 assert(_count > 0);
                 return _data[_count - 1];
             }
 
             // Returns True if val is inside the Cell
-            bool contains(const Piece& val) const{
+            [[nodiscard]] bool contains(const Piece& val) const{
                 for (int i = 0; i<_count; ++i) {
                     if (_data[i] == val) return true;
                 }
@@ -73,11 +73,11 @@ namespace Hive {
             }
 
             // Returns True if the Cell is empty
-            bool empty() const {
+            [[nodiscard]] bool empty() const {
                 return _count == 0;
             }
             // Returns the number of elements in the Cell
-            int size() const {
+            [[nodiscard]] int height() const {
                 return _count;
             }
             // Clear the Cell
@@ -93,10 +93,10 @@ namespace Hive {
             auto end() {
                 return _data.begin() + _count;
             }
-            auto begin() const {
+            [[nodiscard]] auto begin() const {
                 return _data.begin();
             }
-            auto end() const {
+            [[nodiscard]] auto end() const {
                 return _data.begin() + _count;
             }
     };
@@ -142,12 +142,12 @@ namespace Hive {
 
 
             // ----- Coordinates Math -----
-            [[nodiscard]] static inline int AxToIndex(Coord coord) {
+            [[nodiscard]] static int AxToIndex(Coord coord) {
                 assert(isValid(coord) && "Axial Coordinate is not valid");
                 return (coord.r + BOARD_OFFSET) * BOARD_DIM  + (coord.q + BOARD_OFFSET);
             }
 
-            [[nodiscard]] static inline bool isValid(Coord coord) {
+            [[nodiscard]] static bool isValid(Coord coord) {
                 int q = coord.q + BOARD_OFFSET;
                 int r = coord.r + BOARD_OFFSET;
                 return q >= 0 && q < BOARD_DIM && r >= 0 && r < BOARD_DIM;
@@ -155,17 +155,20 @@ namespace Hive {
 
 
             // ----- Queries -----
-            
+
+            // Get occupied cells
+            [[nodiscard]] const std::vector<Coord>& occupiedCoords() const {
+                    return _occupied_coords;
+            }
+
+            // Retrieve all the occupied cells neighbor to a given coordinate
+            void getOccupiedNeighbors(Coord coord, std::vector<Coord>& out) const;
+
             // Get top piece over a given Coordinate
-            const Piece* top(const Coord coord) const{
+            [[nodiscard]] const Piece* top(const Coord coord) const{
                 const Cell& idx = _grid[AxToIndex(coord)];
                 if (idx.empty()) return nullptr;
                 return &idx.top();
-            }
-
-            // Get occupied cells 
-            const std::vector<Coord>& occupiedCoords() const {
-                return _occupied_coords;
             }
             
             // Get cell at index (for iteration over stack contents)
@@ -174,12 +177,12 @@ namespace Hive {
             }
 
             // Get cell height
-            int height (Coord coord) const {
-                return _grid[AxToIndex(coord)].size();
+            [[nodiscard]] int height (Coord coord) const {
+                return _grid[AxToIndex(coord)].height();
             }
 
             // Is the cell empty
-            bool empty(Coord coord) const {
+            [[nodiscard]] bool empty(Coord coord) const {
                 return _grid[AxToIndex(coord)].empty();
             }
 
@@ -191,9 +194,6 @@ namespace Hive {
             Piece remove(Coord coord);
 
             void move(Coord from, Coord to);
-
-            // Retrieve all the occupied cells neighbor to a given coordinate
-            void getOccupiedNeighbors(Coord coord, std::vector<Coord>& out) const;
     };
 
 
