@@ -32,17 +32,33 @@ target_include_directories(uhp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/headers)
 option(ENABLE_LEARNING "Build learning module (requires LibTorch)" OFF)
 
 if(ENABLE_LEARNING)
+    # Find Torch early so all targets can see it
     find_package(Torch REQUIRED)
+    add_definitions(${TORCH_DEFINITIONS})
+endif()
 
+# --- Core engine library ---
+add_library(hive_core STATIC ...)
+
+target_include_directories(hive_core PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/headers
+)
+
+# ADD THIS: Link hive_core to Torch if learning is enabled
+if(ENABLE_LEARNING)
+    target_link_libraries(hive_core PUBLIC ${TORCH_LIBRARIES})
+endif()
+
+if (ENABLE_LEARNING)
     add_library(hive_learning STATIC
-        learning/nn/neural_net.cpp
-        learning/nn/state_encoder.cpp
-        learning/nn/action_encoder.cpp
-        learning/mcts/mcts.cpp
-        learning/training/replay_buffer.cpp
-        learning/training/self_play.cpp
-        learning/training/trainer.cpp
-        learning/data/sgf_parser.cpp
+        src/alphazeroEngine/learning/nn/neural_net.cpp
+        src/alphazeroEngine/learning/nn/state_encoder.cpp
+        src/alphazeroEngine/learning/nn/action_encoder.cpp
+        src/alphazeroEngine/learning/mcts/mcts.cpp
+        src/alphazeroEngine/learning/training/replay_buffer.cpp
+        src/alphazeroEngine/learning/training/self_play.cpp
+        src/alphazeroEngine/learning/training/trainer.cpp
+        src/alphazeroEngine/learning/data/sgf_parser.cpp
     )
 
     target_include_directories(hive_learning PUBLIC
