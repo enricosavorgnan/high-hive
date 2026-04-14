@@ -137,8 +137,9 @@ namespace Hive {
 
     void UhpHandler::cmdU1() { std::cout << "ok\n"; }
 
-    void UhpHandler::cmdInfo() {
-        std::cout << "id high-hive-cpp v0.1\n";
+    void UhpHandler::cmdInfo() const
+    {
+        std::cout << "id high-hive-cpp v1.0 Engine "<< engine->getName() << "\n";
         std::cout << "Mosquito;Ladybug;Pillbug\n";
         std::cout << "ok\n";
     }
@@ -236,10 +237,9 @@ namespace Hive {
             return;
         }
 
-        std::vector<Piece> availableHand = state.getUniqueAvailablePieces(state.toMove());
-        Move bestMove = engine->getBestMove(state.board(), state.toMove(), availableHand, validMoves);
+        const Move bestMove = engine->getBestMove(state, validMoves);
 
-        std::cout << codec.moveToUhpString(bestMove) << "\n"; // Strict serialization
+        std::cout << codec.moveToUhpString(bestMove) << "\n";
         std::cout << "ok\n";
     }
 

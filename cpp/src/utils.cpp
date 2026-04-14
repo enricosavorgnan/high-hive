@@ -447,11 +447,11 @@ namespace Hive
 
         // Map UHP relative position characters to your axial coordinate logic
         if (refStr.front() == '-') { offset = {-1, 0}; refPieceStr = refStr.substr(1); }
-        else if (refStr.front() == '/') { offset = {0, -1}; refPieceStr = refStr.substr(1); }
-        else if (refStr.front() == '\\') { offset = {-1, 1}; refPieceStr = refStr.substr(1); }
+        else if (refStr.front() == '/') { offset = {1, -1}; refPieceStr = refStr.substr(1); }
+        else if (refStr.front() == '\\') { offset = {0, -1}; refPieceStr = refStr.substr(1); }
         else if (refStr.back() == '-') { offset = {1, 0}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
-        else if (refStr.back() == '/') { offset = {0, 1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
-        else if (refStr.back() == '\\') { offset = {1, 1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
+        else if (refStr.back() == '/') { offset = {-1, 1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
+        else if (refStr.back() == '\\') { offset = {0, 1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
         else {
             // No prefix/suffix means placing directly ON TOP of the reference piece (Beetle/Mosquito)
             refPieceStr = refStr;

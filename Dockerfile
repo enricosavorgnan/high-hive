@@ -1,36 +1,36 @@
-# Stage 1: Build Environment
-FROM nvidia/cuda:12.2.2-devel-ubuntu22.04 AS builder
+# Use a stable Ubuntu base image
+FROM ubuntu:22.04
 
-# Prevent interactive prompts during apt installations
+# Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install C++ build dependencies
+# Install build tools and dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
-    g++ \
+    wget \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /build_env
+# Download and extract LibTorch (CPU) to match the Demetra path
+RUN wget -qO libtorch.zip https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip \
+    && unzip -q libtorch.zip -d /opt \
+    && rm libtorch.zip
 
-# Copy the repository contents into the container
-COPY . .
-
-# Build the C++ engine using the root CMakeLists.txt
-RUN mkdir build && cd build && \
-    cmake .. && \
-    make -j$(nproc)
-
-# Stage 2: Runtime Environment
-FROM nvidia/cuda:12.2.2-runtime-ubuntu22.04
-
+# Set the working directory
 WORKDIR /app
 
-# Copy only the compiled 'high_hive' binary from the builder stage
-COPY --from=builder /build_env/build/high_hive /app/high_hive
+# Copy the entire repository (including all locally modified files) into the container
+COPY . /app
 
-# Ensure execution permissions
-RUN chmod +x /app/high_hive
+# Configure and build the C++ project
+WORKDIR /app/cpp
+RUN rm -rf build && mkdir -p build && cd build \
+    && cmake .. -DCMAKE_PREFIX_PATH=/opt/libtorch -DUSE_CUDA=OFF \
+    && make uhp hive_pretrain
 
-# Execute the engine
-ENTRYPOINT ["/app/high_hive"]
+# Set the working directory to the build folder for execution
+WORKDIR /app/cpp/build
+
+# Default command to run the UHP engine for the referee
+ENTRYPOINT ["./uhp"]

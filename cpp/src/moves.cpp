@@ -1,4 +1,5 @@
 #include "headers/moves.h"
+#include "headers/rules.h"
 #include <unordered_set>
 #include <deque>
 #include <algorithm>

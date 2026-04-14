@@ -207,6 +207,7 @@ def play_game(white_image, black_image, white_gpu=None, black_gpu=None):
         logging.debug("Got %s", msg)
         # Check the they export all the extensions
         # FIXME: handle errors gracefully
+        print(f"Player greeting: {msg}")
         assert msg.split("\n")[1].strip() == "Mosquito;Ladybug;Pillbug"
 
     outcome = do_play_game(referee, white, black)
@@ -222,6 +223,10 @@ def play_game(white_image, black_image, white_gpu=None, black_gpu=None):
 
 def get_db():
     db_path = os.path.join(os.getcwd(), "databases", "games_mzinga.db")
+    #if exists a path
+    if not os.path.exists(db_path):
+        db_path = os.path.join(os.getcwd(), "./referee/databases", "games_aze.db")
+
     db = sqlite3.connect(db_path)
     db.executescript("""
     CREATE TABLE IF NOT EXISTS games (
@@ -326,11 +331,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if args.update_images:
-        print("Updating Docker images...")
-        update_images(args.update_images)
+    # if args.update_images:
+    #     print("Updating Docker images...")
+    #     update_images(args.update_images)
 
     for i in range(int(args.runs) if args.runs else 1):
+        print(f"\n\n\n------------------")
         print(f"Running game {i+1}/{int(args.runs) if args.runs else 1}")
+        print(f"------------------")
         match_list = load_tournament(args.games)
         play_tournament(match_list, args.white_gpu, args.black_gpu)
