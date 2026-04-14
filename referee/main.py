@@ -222,7 +222,7 @@ def play_game(white_image, black_image, white_gpu=None, black_gpu=None):
 
 
 def get_db():
-    db_path = os.path.join(os.getcwd(), "databases", "games_mzinga.db")
+    db_path = os.path.join(os.getcwd(), "databases", "games_aze.db")
     #if exists a path
     if not os.path.exists(db_path):
         db_path = os.path.join(os.getcwd(), "./referee/databases", "games_aze.db")

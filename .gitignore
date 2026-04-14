@@ -2,6 +2,11 @@
 # C++ build output
 build-cpp/
 
+.idea/
 .vscode/
 
 cmake-build-debug/
+
+# WSL build output
+./cpp/cmake-build-debug
+./cpp/cmake-build-debug-wsl
