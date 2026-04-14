@@ -3,17 +3,10 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include <iostream>
 #include "utils.h"
-#include "engine.h"
 #include "state.h"
+#include "engine.h"
 
-// ----------------- !!!!!! -----------------
-// Uncomment the following for using Random Engine as active engine for the bot
-//
-// #define USE_RANDOM_ENGINE
-//
-// ----------------- !!!!!! -----------------
 
 namespace Hive {
 
@@ -28,14 +21,7 @@ namespace Hive {
         std::string generateGameString() const;
         int applyMove(const std::string& moveStr, bool validate);
 
-        // Polymorphic engine instance
-        #ifdef USE_RANDOM_ENGINE
-            std::unique_ptr<Engine> engine = std::make_unique<RandomEngine>();
-        #else
-            std::string modelPath = "alphaZeroEngine/checkpoints/pretrained_best.pt";
-            int timeBudget = 4800;          // In milliseconds (ms)
-            std::unique_ptr<Engine> engine = std::make_unique<AlphaZeroEngine>(modelPath, timeBudget);
-        #endif
+        std::unique_ptr<Engine> engine;
 
         public:
             UhpHandler() = default;

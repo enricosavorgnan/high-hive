@@ -54,7 +54,26 @@ target_link_libraries(hive_learning PUBLIC
         ${TORCH_LIBRARIES}
 )
 
-# --- Pre-training executable ---
+# --- Link learning module to UHP executable ---
+target_link_libraries(uhp PRIVATE hive_learning)
+target_include_directories(uhp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/alphaZeroEngine)
+
+# --- Global Asset Management: Neural Network Checkpoints ---
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/src/alphaZeroEngine/checkpoints
+        DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/alphaZeroEngine)
+
+
+
+
+# --- Training executables ---
+add_executable(hive_train train_main.cpp)
+target_link_libraries(hive_train PRIVATE hive_learning)
+target_include_directories(hive_train PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/headers
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/alphaZeroEngine
+)
+
 add_executable(hive_pretrain pretrain_main.cpp)
 target_link_libraries(hive_pretrain PRIVATE hive_learning)
 target_include_directories(hive_pretrain PRIVATE
@@ -62,14 +81,3 @@ target_include_directories(hive_pretrain PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/headers
         ${CMAKE_CURRENT_SOURCE_DIR}/src/alphaZeroEngine
 )
-
-# --- Link learning module to UHP executable ---
-target_link_libraries(uhp PRIVATE hive_learning)
-target_include_directories(uhp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/alphaZeroEngine)
-
-# --- Global Asset Management: Neural Network Checkpoints ---
-# This command automates the transfer of the checkpoints directory into the
-# current build directory during the configuration phase. This ensures that the
-# relative path "alphaZeroEngine/checkpoints/pretrained_best.pt" in UHP.H is always valid
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/src/alphaZeroEngine/checkpoints
-        DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/alphaZeroEngine)

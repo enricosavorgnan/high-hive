@@ -27,10 +27,11 @@ COPY . /app
 WORKDIR /app/cpp
 RUN rm -rf build && mkdir -p build && cd build \
     && cmake .. -DCMAKE_PREFIX_PATH=/opt/libtorch -DUSE_CUDA=OFF \
-    && make uhp hive_pretrain
+    && make uhp hive_pretrain hive_train
 
 # Set the working directory to the build folder for execution
 WORKDIR /app/cpp/build
 
 # Default command to run the UHP engine for the referee
 ENTRYPOINT ["./uhp"]
+CMD ["--engine", "AlphaZeroEngine", "--model-path", "alphaZeroEngine/checkpoints/pretrained_best.pt", "--time-budget", "4800"]

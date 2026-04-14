@@ -3,38 +3,44 @@
 #include <memory>
 #include "headers/uhp.h"
 
-// #include "alphazero_engine.h"
+#include "alphaZeroEngine/alphaZeroEngine.h"
 
 int main(int argc, char* argv[]) {
     std::ios_base::sync_with_stdio(false);
     std::cin.tie(nullptr);
 
-    // std::string modelPath;
-    // for (int i = 1; i < argc; ++i) {
-    //     std::string arg = argv[i];
-    //     if (arg == "--model" && i + 1 < argc) {
-    //         modelPath = argv[++i];
-    //     }
-    // }
+    std::string modelPath = "";
+    std::string engineName = "RandomEngine";
+    int timeBudget = 4500;
 
-    // std::unique_ptr<Hive::Engine> engine;
-    //
-    // if (!modelPath.empty()) {
-// #ifdef ENABLE_LEARNING
-//         std::cerr << "Loading model: " << modelPath << std::endl;
-//         engine = std::make_unique<Hive::AlphaZeroEngine>(modelPath);
-//         std::cerr << "Model loaded." << std::endl;
-// #else
-//         std::cerr << "Error: --model requires building with -DENABLE_LEARNING=ON\n";
-//         return 1;
-// #endif
-//     } else {
-//         engine = std::make_unique<Hive::RandomEngine>();
-//     }
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--engine" && i+1 < argc) {
+            engineName = argv[++i];
+        } else if (arg == "--model-path" && i + 1 < argc) {
+            modelPath = argv[++i];
+        } else if (arg == "--time-budget" && i + 1 < argc) {
+            timeBudget = std::stoi(argv[++i]);
+        }
+    }
 
-    // Hive::UhpHandler uhp(std::move(engine));
+    std::unique_ptr<Hive::Engine> engine;
 
-    Hive::UhpHandler uhp;
+    if (engineName == "RandomEngine") {
+        engine = std::make_unique<Hive::RandomEngine>();
+    } else if (engineName == "AlphaZeroEngine") {
+        if (modelPath.empty()) {
+            std::cerr << "ERROR: modelPath is empty" << std::endl;
+            return 1;
+        }
+        engine = std::make_unique<Hive::AlphaZeroEngine>(modelPath, timeBudget);
+    } else {
+        std::cerr << "ERROR: unknown engine" << std::endl;
+        return 2;
+    }
+
+    Hive::UhpHandler uhp(std::move(engine));
+
     uhp.cmdInfo();
     std::cout << std::flush;
 

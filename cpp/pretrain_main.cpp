@@ -1,7 +1,7 @@
-#include "nn/headers/neural_net.h"
-#include "training/headers/trainer.h"
-#include "data/headers/sgf_parser.h"
-#include "config/headers/config.h"
+#include "alphaZeroEngine/nn/headers/neural_net.h"
+#include "alphaZeroEngine/training/headers/trainer.h"
+#include "alphaZeroEngine/data/headers/sgf_parser.h"
+#include "alphaZeroEngine/config/headers/config.h"
 
 #include <iostream>
 #include <string>

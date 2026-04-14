@@ -17,7 +17,7 @@ apptainer exec --nv "$CONTAINER" bash -c "
     cd '$REPO_DIR/cpp'
     mkdir -p build && cd build
     cmake .. -DCMAKE_PREFIX_PATH=/opt/libtorch
-    make -j\$(nproc) hive_pretrain uhp
+    make -j\$(nproc) hive_pretrain uhp hive_train
 "
 
 echo "=== Build complete ==="

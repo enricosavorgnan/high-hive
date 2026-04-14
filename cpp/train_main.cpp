@@ -1,6 +1,6 @@
-#include "nn/headers/neural_net.h"
-#include "training/headers/trainer.h"
-#include "config/headers/config.h"
+#include "alphaZeroEngine/nn/headers/neural_net.h"
+#include "alphaZeroEngine/training/headers/trainer.h"
+#include "alphaZeroEngine/config/headers/config.h"
 
 #include <iostream>
 #include <string>

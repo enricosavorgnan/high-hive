@@ -36,7 +36,7 @@ EOF
 )
 
 # Esegui e cattura tempi
-echo "$COMMANDS" | while IFS= read -r line; do
+echo "$COMMANDS" | $UHP_BIN --engine AlphaZeroEngine --model-path "$MODEL" | while IFS= read -r line; do
     if [[ "$line" == bestmove* ]]; then
         echo ""
         echo ">>> Sending: $line"
