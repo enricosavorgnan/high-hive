@@ -5,11 +5,10 @@
 #include <vector>
 #include <string>
 
-#ifdef ENABLE_LEARNING
 #include "alphaZeroEngine/nn/headers/action_encoder.h"
 #include "alphaZeroEngine/nn/headers/neural_net.h"
 #include "alphaZeroEngine/mcts/headers/mcts.h"
-#endif
+
 
 namespace Hive {
 
@@ -34,8 +33,6 @@ namespace Hive {
         };
     };
 
-
-#ifdef ENABLE_LEARNING
     class AlphaZeroEngine : public Engine {
     public:
         explicit AlphaZeroEngine(const std::string& modelPath, int timeBudget = 3500) : timeBudget_(timeBudget) {
@@ -62,12 +59,11 @@ namespace Hive {
 
     public:
         Move getBestMove(const State& state, const std::vector<Move>& validMoves) override;
-        std::string getName()
+        std::string getName() override
         {
             return "AlphaZero";
         };
     };
-#endif
 
 } // namespace Hive
 

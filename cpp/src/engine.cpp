@@ -22,7 +22,6 @@ namespace Hive {
     }
 
 
-#ifdef ENABLE_LEARNING
     Move AlphaZeroEngine::getBestMove(const State& state, const std::vector<Move>& validMoves) {
 
         if (validMoves.empty()) {
@@ -37,7 +36,7 @@ namespace Hive {
 
         // Run time-budgeted MCTS search
         auto moveVisits = mcts_->searchWithBudget(
-            mutableState, std::chrono::milliseconds(timeBudget_), /*addNoise=*/false);
+            mutableState, std::chrono::milliseconds(timeBudget_), false);
 
         if (moveVisits.empty()) {
             return validMoves[0];
@@ -53,6 +52,5 @@ namespace Hive {
         int bestIdx = Learning::MCTS::selectAction(visits, /*temperature=*/0.0f);
         return moveVisits[bestIdx].first;
     }
-#endif
 
 } // namespace Hive
