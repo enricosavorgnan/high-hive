@@ -336,6 +336,8 @@ if __name__ == "__main__":
     #     update_images(args.update_images)
 
     for i in range(int(args.runs) if args.runs else 1):
+        print(f"\n\n\n------------------")
         print(f"Running game {i+1}/{int(args.runs) if args.runs else 1}")
+        print(f"------------------")
         match_list = load_tournament(args.games)
         play_tournament(match_list, args.white_gpu, args.black_gpu)
