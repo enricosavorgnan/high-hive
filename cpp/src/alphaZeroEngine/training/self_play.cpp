@@ -1,6 +1,6 @@
-#include "alphazeroEngine/training/headers/self_play.h"
-#include "alphazeroEngine/nn/headers/state_encoder.h"
-#include "alphazeroEngine/nn/headers/action_encoder.h"
+#include "alphaZeroEngine/training/headers/self_play.h"
+#include "alphaZeroEngine/nn/headers/state_encoder.h"
+#include "alphaZeroEngine/nn/headers/action_encoder.h"
 
 #include <iostream>
 

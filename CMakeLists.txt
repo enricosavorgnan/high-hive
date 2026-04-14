@@ -26,4 +26,5 @@ add_executable(high_hive
         cpp/src/state.cpp
         cpp/src/uhp.cpp
         cpp/src/utils.cpp
+        cpp/src/alphaZeroEngine/training/headers/replay_buffer.h
 )

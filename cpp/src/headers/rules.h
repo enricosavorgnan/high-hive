@@ -19,6 +19,9 @@ namespace Hive {
             // leaving the piece in target coordinate far from other pieces.
             static bool touchesHive(const Board& board, Coord target, Coord exclude);
 
+            // Method that returns true if the target coordinate is adjacent to a piece with the given color.
+            static bool touchesColor(const Board& board, Coord target, Color color);
+
             // Method for checking the One Hive Rule, i.e.,for retrieving whether a board is connected if a piece at coordinate idx is removed.
             // ATTENTION: Runs a BFS under-the-hood. It is slow.
             //

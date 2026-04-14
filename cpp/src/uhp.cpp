@@ -137,9 +137,11 @@ namespace Hive {
 
     void UhpHandler::cmdU1() { std::cout << "ok\n"; }
 
-    void UhpHandler::cmdInfo() {
-        std::cout << "id high-hive-cpp v0.1\n";
+    void UhpHandler::cmdInfo() const
+    {
+        std::cout << "id high-hive-cpp v1.0 AZE\n";
         std::cout << "Mosquito;Ladybug;Pillbug\n";
+        std::cout << "Engine" << engine->getName() << "\n";
         std::cout << "ok\n";
     }
 
@@ -236,7 +238,7 @@ namespace Hive {
             return;
         }
 
-        Move bestMove = engine->getBestMove(state, validMoves);
+        const Move bestMove = engine->getBestMove(state, validMoves);
 
         std::cout << codec.moveToUhpString(bestMove) << "\n";
         std::cout << "ok\n";

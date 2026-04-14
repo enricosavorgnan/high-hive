@@ -1,6 +1,6 @@
-#include "alphazeroEngine/training/headers/trainer.h"
-#include "alphazeroEngine/nn/headers/state_encoder.h"
-#include "alphazeroEngine/nn/headers/action_encoder.h"
+#include "alphaZeroEngine/training/headers/trainer.h"
+#include "alphaZeroEngine/nn/headers/state_encoder.h"
+#include "alphaZeroEngine/nn/headers/action_encoder.h"
 
 #include <iostream>
 #include <filesystem>

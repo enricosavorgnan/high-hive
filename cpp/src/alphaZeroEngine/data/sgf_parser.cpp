@@ -1,5 +1,5 @@
-#include "alphazeroEngine/data/headers/sgf_parser.h"
-#include "alphazeroEngine/nn/headers/state_encoder.h"
+#include "alphaZeroEngine/data/headers/sgf_parser.h"
+#include "alphaZeroEngine/nn/headers/state_encoder.h"
 #include "utils.h"
 #include "rules.h"
 #include "moves.h"
@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <cctype>
 #include <map>
+
+#include "alphaZeroEngine/nn/headers/action_encoder.h"
 
 namespace Hive::Learning {
 

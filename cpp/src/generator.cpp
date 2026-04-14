@@ -4,9 +4,9 @@ namespace Hive {
 
     std::vector<Move> MoveGenerator::generatePlacements(const State& state) {
         std::vector<Move> placements;
-        Color player = state.toMove();
+        const Color player = state.toMove();
         const Board& board = state.board();
-        int ply = state.getCurrentPlayerTurn();
+        const int ply = state.getCurrentPlayerTurn();
 
         // 1. Get the list of all the pieces that are in the current player's hand
         std::vector<Piece> availablePieces = state.getUniqueAvailablePieces(player);

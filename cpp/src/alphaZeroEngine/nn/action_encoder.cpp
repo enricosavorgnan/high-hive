@@ -1,4 +1,4 @@
-#include "alphazeroEngine/nn/headers/action_encoder.h"
+#include "alphaZeroEngine/nn/headers/action_encoder.h"
 #include "board.h"
 #include "coords.h"
 #include "pieces.h"

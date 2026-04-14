@@ -1,7 +1,7 @@
 #pragma once
 
 #include <torch/torch.h>
-#include "alphazeroEngine/config/headers/config.h"
+#include "alphaZeroEngine/config/headers/config.h"
 
 #include <vector>
 #include <mutex>

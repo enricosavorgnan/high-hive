@@ -5,7 +5,11 @@
 #include <vector>
 #include <string>
 
-#include "../../learning/nn/headers/action_encoder.h"
+#ifdef ENABLE_LEARNING
+#include "alphaZeroEngine/nn/headers/action_encoder.h"
+#include "alphaZeroEngine/nn/headers/neural_net.h"
+#include "alphaZeroEngine/mcts/headers/mcts.h"
+#endif
 
 namespace Hive {
 
@@ -17,16 +21,22 @@ namespace Hive {
         // The core method every engine must implement.
         // Receives the full game State (needed by MCTS for apply/undo).
         virtual Move getBestMove(const State& state, const std::vector<Move>& validMoves) = 0;
+        virtual std::string getName() = 0;
     };
 
     // A purely random mover for baseline testing
     class RandomEngine : public Engine {
     public:
         Move getBestMove(const State& state, const std::vector<Move>& validMoves) override;
+        std::string getName() override
+        {
+            return "Random";
+        };
     };
 
 
-    class AlphaZeroEngine : Engine {
+#ifdef ENABLE_LEARNING
+    class AlphaZeroEngine : public Engine {
     public:
         explicit AlphaZeroEngine(const std::string& modelPath, int timeBudget = 3500) : timeBudget_(timeBudget) {
 
@@ -51,8 +61,13 @@ namespace Hive {
         int timeBudget_;
 
     public:
-        Move getBestMove(const Board& board, Color turnPlayer, const std::vector<Piece>& hand, const std::vector<Move>& validMoves) override;
+        Move getBestMove(const State& state, const std::vector<Move>& validMoves) override;
+        std::string getName()
+        {
+            return "AlphaZero";
+        };
     };
+#endif
 
 } // namespace Hive
 

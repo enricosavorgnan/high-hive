@@ -3,10 +3,10 @@
 #include <torch/torch.h>
 #include "state.h"
 #include "moves.h"
-#include "alphazeroEngine/nn/headers/neural_net.h"
-#include "alphazeroEngine/nn/headers/state_encoder.h"
-#include "alphazeroEngine/nn/headers/action_encoder.h"
-#include "alphazeroEngine/config/headers/config.h"
+#include "alphaZeroEngine/nn/headers/neural_net.h"
+#include "alphaZeroEngine/nn/headers/state_encoder.h"
+#include "alphaZeroEngine/nn/headers/action_encoder.h"
+#include "alphaZeroEngine/config/headers/config.h"
 
 #include <chrono>
 #include <memory>

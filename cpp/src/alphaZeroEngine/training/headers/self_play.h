@@ -1,10 +1,10 @@
 #pragma once
 
-#include "alphazeroEngine/nn/headers/neural_net.h"
-#include "alphazeroEngine/mcts/headers/mcts.h"
-#include "alphazeroEngine/training/headers/replay_buffer.h"
+#include "alphaZeroEngine/nn/headers/neural_net.h"
+#include "alphaZeroEngine/mcts/headers/mcts.h"
+#include "alphaZeroEngine/training/headers/replay_buffer.h"
 #include "state.h"
-#include "alphazeroEngine/config/headers/config.h"
+#include "alphaZeroEngine/config/headers/config.h"
 
 #include <vector>
 

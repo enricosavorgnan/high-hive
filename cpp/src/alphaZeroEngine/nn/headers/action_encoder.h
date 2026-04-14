@@ -3,7 +3,7 @@
 #include <torch/torch.h>
 #include "state.h"
 #include "moves.h"
-#include "alphazeroEngine/config/headers/config.h"
+#include "alphaZeroEngine/config/headers/config.h"
 
 // ACTION ENCODER
 // Maps between Move objects and action indices in [0, ACTION_SPACE).

@@ -1,10 +1,10 @@
 #pragma once
 
 #include <torch/torch.h>
-#include "alphazeroEngine/nn/headers/neural_net.h"
-#include "alphazeroEngine/training/headers/replay_buffer.h"
-#include "alphazeroEngine/training/headers/self_play.h"
-#include "alphazeroEngine/config/headers/config.h"
+#include "alphaZeroEngine/nn/headers/neural_net.h"
+#include "alphaZeroEngine/training/headers/replay_buffer.h"
+#include "alphaZeroEngine/training/headers/self_play.h"
+#include "alphaZeroEngine/config/headers/config.h"
 
 #include <string>
 

@@ -2,7 +2,7 @@
 
 #include <torch/torch.h>
 #include "state.h"
-#include "alphazeroEngine/config/headers/config.h"
+#include "alphaZeroEngine/config/headers/config.h"
 
 // STATE ENCODER
 // Converts a State into a tensor of shape [NUM_CHANNELS, GRID_SIZE, GRID_SIZE]

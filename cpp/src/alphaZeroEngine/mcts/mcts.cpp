@@ -1,4 +1,4 @@
-#include "alphazeroEngine/mcts/headers/mcts.h"
+#include "alphaZeroEngine/mcts/headers/mcts.h"
 #include "generator.h"
 
 #include <algorithm>
