@@ -26,7 +26,7 @@ COPY . /app
 # Configure and build the C++ project
 WORKDIR /app/cpp
 RUN rm -rf build && mkdir -p build && cd build \
-    && cmake .. -DENABLE_LEARNING=ON -DCMAKE_PREFIX_PATH=/opt/libtorch -DUSE_CUDA=OFF \
+    && cmake .. -DCMAKE_PREFIX_PATH=/opt/libtorch -DUSE_CUDA=OFF \
     && make uhp hive_pretrain
 
 # Set the working directory to the build folder for execution
