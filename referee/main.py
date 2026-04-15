@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 GAME_TYPE = "Base+MLP"
-MOVE_TIMEOUT_S = 5
+MOVE_TIMEOUT_S = 16
 MAX_PLIES = 100
 
 

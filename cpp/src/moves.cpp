@@ -105,7 +105,7 @@ namespace Hive::Moves {
 
 
     void getMosquitoMoves(const Board& board, Coord prop, std::vector<Coord>& targets, std::optional<Coord> lastMovedPieceCoord, std::vector<std::pair<Coord, Coord>>& dragTargets, const std::unordered_set<Coord, CoordHash>& articulationPoints) {
-        bool canLift = RuleEngine::canLiftPiece(board, prop, articulationPoints);
+        const bool canLift = RuleEngine::canLiftPiece(board, prop, articulationPoints);
 
         // Mosquito on top of the hive: acts as a beetle
         if (board.height(prop) > 1) {
