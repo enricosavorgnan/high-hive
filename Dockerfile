@@ -34,4 +34,4 @@ WORKDIR /app/cpp/build
 
 # Default command to run the UHP engine for the referee
 ENTRYPOINT ["./uhp"]
-CMD ["--engine", "AlphaZeroEngine", "--model-path", "alphaZeroEngine/checkpoints/pretrained_best.pt", "--time-budget", "15000"]
+CMD ["--engine", "AlphaZeroEngine", "--model-path", "alphaZeroEngine/checkpoints/pretrained_best.pt", "--time-budget", "4500"]
