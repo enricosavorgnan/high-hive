@@ -109,15 +109,26 @@ namespace Hive {
                     case Bug::Grasshopper: Moves::getGrasshopperMoves(board, origin, normalTargets); break;
                     case Bug::Ant:         Moves::getAntMoves(board, origin, normalTargets); break;
                     case Bug::Ladybug:     Moves::getLadybugMoves(board, origin, normalTargets); break;
-                    case Bug::Pillbug:     break;
-                    case Bug::Mosquito:    break;
+                    case Bug::Pillbug:     Moves::getPillbugMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints);;
+                    case Bug::Mosquito:    Moves::getMosquitoMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints);;
                 }
             }
 
-            if (topPiece->bug == Bug::Pillbug) {
-                Moves::getPillbugMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
-            } else if (topPiece->bug == Bug::Mosquito) {
-                Moves::getMosquitoMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
+            else if (topPiece->bug == Bug::Pillbug) {
+                Moves::getPillbugDragMoves(board, origin, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
+            } 
+            
+            else if (topPiece->bug == Bug::Mosquito) {
+                auto neighbors = coordNeighbors(origin);
+                for (const auto& n : neighbors) {
+                    if (const Piece* neighborPiece = board.top(n)) {
+                        Bug targetBug = neighborPiece->bug;  
+                        if (targetBug== Bug::Pillbug) {
+                            Moves::getPillbugDragMoves(board, origin, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
+                            break;
+                        }
+                    }
+                }
             }
 
             for (const Coord& target : normalTargets) {
