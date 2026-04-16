@@ -69,6 +69,11 @@ namespace Hive {
                   return "AlphaZeroEngine";
               }
 
+
+             void setTimeBudget(int timeMs) override {
+                      budgetMs_ = timeMs;
+                  }
+
          private:
               Learning::HiveNet network_{nullptr};
               std::unique_ptr<Learning::MCTS> mcts_;

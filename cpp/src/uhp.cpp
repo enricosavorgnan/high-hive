@@ -228,8 +228,19 @@ namespace Hive {
     }
 
     void UhpHandler::cmdBestMove(const std::vector<std::string>& chunks) const {
-        std::vector<Move> validMoves = MoveGenerator::generateMoves(state);
-        UhpCodec codec(state, uhpBoard);
+        // Set time value of engine to the second chunk:
+        if (chunks.size() > 2 && chunks[1] == "time")
+        {
+            std::cout << "HH:MM:SS time: " << chunks[2] << "\n";
+            const std::string time = chunks[2];
+            int hours, minutes, seconds;
+            sscanf(time.c_str(), "%d:%d:%d", &hours, &minutes, &seconds);
+            int totSeconds = hours * 3600 + minutes * 60 + seconds;
+            engine->setTimeBudget(totSeconds*1000);        // totSecond is in sec, engines in ms
+        }
+
+        const std::vector<Move> validMoves = MoveGenerator::generateMoves(state);
+        const UhpCodec codec(state, uhpBoard);
 
         if (validMoves.empty() || (validMoves.size() == 1 && validMoves[0].type == Move::Pass)) {
             std::cout << "pass\n";
