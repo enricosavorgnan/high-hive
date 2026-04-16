@@ -124,7 +124,7 @@ namespace Hive {
                     if (const Piece* neighborPiece = board.top(n)) {
                         Bug targetBug = neighborPiece->bug;  
                         if (targetBug== Bug::Pillbug) {
-                            Moves::getPillbugDragMoves(board, origin, state.lastMovedPieceCoord(), dragTargets, articulationPoints);Moves::getPillbugDragMoves(board, origin, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
+                            Moves::getPillbugDragMoves(board, origin, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
                             break;
                         }
                     }
