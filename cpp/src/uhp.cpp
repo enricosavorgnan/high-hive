@@ -231,7 +231,6 @@ namespace Hive {
         // Set time value of engine to the second chunk:
         if (chunks.size() > 2 && chunks[1] == "time")
         {
-            std::cout << "HH:MM:SS time: " << chunks[2] << "\n";
             const std::string time = chunks[2];
             int hours, minutes, seconds;
             sscanf(time.c_str(), "%d:%d:%d", &hours, &minutes, &seconds);
