@@ -7,10 +7,16 @@ WORKDIR /app
 # Copy the Mzinga source code into the container
 # (Assumes the context includes the Mzinga source code)
 # COPY . ./
+ARG TARGETARCH
 RUN apt-get update && apt-get install -y wget unzip \
-    && wget https://github.com/jonthysell/Mzinga/releases/download/v0.15.1/Mzinga.LinuxX64.tar.gz -O Mzinga_Linux.zip \
-    && tar xvf Mzinga_Linux.zip -C /app --strip-components=1 \
-    && rm Mzinga_Linux.zip
+    && case "${TARGETARCH}" in \
+         amd64) MZINGA_ARCH="LinuxX64" ;; \
+         arm64) MZINGA_ARCH="LinuxARM64" ;; \
+         *)     echo "Unsupported TARGETARCH=${TARGETARCH}" && exit 1 ;; \
+       esac \
+    && wget "https://github.com/jonthysell/Mzinga/releases/download/v0.15.1/Mzinga.${MZINGA_ARCH}.tar.gz" -O Mzinga_Linux.tar.gz \
+    && tar xvf Mzinga_Linux.tar.gz -C /app --strip-components=1 \
+    && rm Mzinga_Linux.tar.gz
 
 # RUN cd Mzinga.Linux
 
