@@ -46,20 +46,28 @@ int main(int argc, char* argv[]) {
         std::cout << "CUDA not available. Training on CPU (will be slow).\n";
     }
 
-    // Create model
+    // Create model and load checkpoint BEFORE constructing the Trainer.
+    // The Trainer constructor snapshots model_ into bestModel_; if the load
+    // happens after construction, bestModel_ stays as random init while
+    // model_ has the pretrained weights, and the first self-play iteration
+    // generates garbage games against a random opponent.
     HiveNet model;
+
+    if (!resumeFrom.empty()) {
+        // Load to CPU first, so checkpoints saved on CUDA can also be loaded
+        // on CPU-only hosts. The to(kCUDA) below moves to GPU if available.
+        torch::serialize::InputArchive archive;
+        archive.load_from(resumeFrom, torch::kCPU);
+        model->load(archive);
+        std::cout << "Resumed from checkpoint: " << resumeFrom << "\n";
+    }
+
     if (torch::cuda::is_available()) {
         model->to(torch::kCUDA);
     }
 
-    // Create trainer
+    // Create trainer (snapshots the loaded model into bestModel_)
     Trainer trainer(model, checkpointDir);
-
-    // Resume from checkpoint if specified
-    if (!resumeFrom.empty()) {
-        trainer.loadCheckpoint(resumeFrom);
-        std::cout << "Resumed from checkpoint: " << resumeFrom << "\n";
-    }
 
     // Run training
     trainer.train(numIterations);
