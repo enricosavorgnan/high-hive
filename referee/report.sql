@@ -3,10 +3,17 @@ SELECT
     timediff(datetime(sum(elapsed_s), 'unixepoch'), datetime(0, 'unixepoch')) as total_time
 FROM games;
 
-CREATE VIEW IF NOT EXISTS white_scores AS
+-- Score views include the version column so the leaderboard can compare
+-- builds of the same engine. DROP+CREATE (instead of CREATE IF NOT EXISTS)
+-- ensures the view definition is refreshed if a previous schema is cached.
+DROP VIEW IF EXISTS white_scores;
+DROP VIEW IF EXISTS black_scores;
+
+CREATE VIEW white_scores AS
 SELECT
     timestamp,
     white AS player,
+    white_version AS version,
     CASE
         WHEN outcome = 'WhiteWins' THEN 3
         WHEN outcome = 'BlackWins' THEN 0
@@ -14,10 +21,11 @@ SELECT
     END AS score
 FROM games;
 
-CREATE VIEW IF NOT EXISTS black_scores AS
+CREATE VIEW black_scores AS
 SELECT
     timestamp,
     black AS player,
+    black_version AS version,
     CASE
         WHEN outcome = 'WhiteWins' THEN 0
         WHEN outcome = 'BlackWins' THEN 3
@@ -27,18 +35,24 @@ FROM games;
 
 
 .print
-.print ====================== Leaderboard ===========================
-SELECT player, sum(score) AS total_score
+.print ====================== Leaderboard (by version) ===========================
+SELECT player, COALESCE(version, '(unknown)') AS version, sum(score) AS total_score
 FROM (
     SELECT * FROM white_scores
     UNION ALL
     SELECT * FROM black_scores)
-GROUP BY player
+GROUP BY player, version
 ORDER BY total_score DESC;
 
 .print
 .print ====================== Matches detail =========================
-SELECT white, black, outcome FROM games;
+SELECT
+    white,
+    COALESCE(white_version, '(unknown)') AS white_v,
+    black,
+    COALESCE(black_version, '(unknown)') AS black_v,
+    outcome
+FROM games;
 
 CREATE VIEW IF NOT EXISTS game_stats AS
 SELECT

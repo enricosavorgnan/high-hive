@@ -221,6 +221,18 @@ def play_game(white_image, black_image, white_gpu=None, black_gpu=None):
     return outcome
 
 
+def parse_version(image):
+    """Extract the tag from a Docker image string (`name[:tag]`).
+
+    Returns 'latest' when no tag is provided. Used to track which build of a
+    bot played a given game, so benchmarks before/after a code change can be
+    compared in the same DB.
+    """
+    if ":" in image:
+        return image.split(":", 1)[1]
+    return "latest"
+
+
 def get_db():
     db_path = os.path.join(os.getcwd(), "databases", "games_aze.db")
     #if exists a path
@@ -233,29 +245,43 @@ def get_db():
         timestamp      text,
         white          text,
         black          text,
+        white_version  text,
+        black_version  text,
         outcome        text,
         outcome_reason text,
         game_string    text,
         elapsed_s      real
     );
     """)
+    # Schema migration: add version columns to pre-existing DBs that were
+    # created before the columns were introduced.
+    existing_cols = {row[1] for row in db.execute("PRAGMA table_info(games)").fetchall()}
+    for col in ("white_version", "black_version"):
+        if col not in existing_cols:
+            db.execute(f"ALTER TABLE games ADD COLUMN {col} text")
+    db.commit()
     return db
 
 
-def play_tournament(match_list, white_gpu, black_gpu):
+def play_tournament(match_list, white_gpu, black_gpu, resume=False):
     for white, black in match_list:
-        # with get_db() as db:
-        #     res = db.execute(
-        #         "SELECT timestamp FROM games WHERE white = ? AND black = ?",
-        #         [white, black]
-        #     )
-        #
-        #     if res.fetchone() is not None:
-        #         logging.info(
-        #             "match between %s and %s already played",
-        #             white, black
-        #         )
-        #         continue
+        white_version = parse_version(white)
+        black_version = parse_version(black)
+
+        if resume:
+            with get_db() as db:
+                res = db.execute(
+                    """SELECT timestamp FROM games
+                       WHERE white = ? AND black = ?
+                         AND white_version IS ? AND black_version IS ?""",
+                    [white, black, white_version, black_version],
+                )
+                if res.fetchone() is not None:
+                    logging.info(
+                        "match %s (%s) vs %s (%s) already played, skipping (--resume)",
+                        white, white_version, black, black_version,
+                    )
+                    continue
 
         date = datetime.datetime.now().isoformat()
         logging.info(
@@ -269,14 +295,17 @@ def play_tournament(match_list, white_gpu, black_gpu):
         with get_db() as db:
             db.execute(
                 """INSERT INTO games
-                   (timestamp, white, black, outcome, outcome_reason, game_string, elapsed_s)
+                   (timestamp, white, black, white_version, black_version,
+                    outcome, outcome_reason, game_string, elapsed_s)
                    VALUES
-                   (?, ?, ?, ?, ?, ?, ?)
+                   (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     date,
                     white,
                     black,
+                    white_version,
+                    black_version,
                     result.outcome.value,
                     result.reason,
                     result.game_string,
@@ -328,6 +357,18 @@ if __name__ == "__main__":
     parser.add_argument("--black-gpu")
     parser.add_argument("--runs")
     parser.add_argument("--update-images", default="images.yaml")
+    parser.add_argument(
+        "--mirror",
+        action="store_true",
+        help="For each (white, black) pairing also play (black, white). "
+             "Removes color bias from the leaderboard.",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Skip pairings that already have a row in the DB for the same "
+             "(white, black, white_version, black_version) tuple.",
+    )
 
     args = parser.parse_args()
 
@@ -340,4 +381,6 @@ if __name__ == "__main__":
         print(f"Running game {i+1}/{int(args.runs) if args.runs else 1}")
         print(f"------------------")
         match_list = load_tournament(args.games)
-        play_tournament(match_list, args.white_gpu, args.black_gpu)
+        if args.mirror:
+            match_list = match_list + [(b, w) for (w, b) in match_list]
+        play_tournament(match_list, args.white_gpu, args.black_gpu, resume=args.resume)

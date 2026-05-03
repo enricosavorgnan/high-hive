@@ -1,5 +1,5 @@
 report:
-    sqlite3 -column -header games.db < report.sql | less
+    sqlite3 -column -header databases/games_aze.db < report.sql | less
 
 build-all:
     just build-container mzinga

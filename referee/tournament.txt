@@ -1,3 +1,18 @@
-#Available engines
-#mzinga,mzinga-cpp,nokamute
-mzinga,high-hive-cpp
+# Pairings: white,black (one per line). Lines starting with `#` are ignored.
+#
+# To benchmark a specific build of high-hive against an opponent, tag the
+# Docker image with the version label you want recorded in the DB, e.g.:
+#     docker build -t high-hive-cpp:learning-pre  .
+#     docker build -t high-hive-cpp:learning-post .
+# then put `high-hive-cpp:learning-pre` in this file. parse_version() in
+# main.py extracts everything after `:` into the white_version / black_version
+# columns; an image with no tag is recorded as version `latest`.
+#
+# Use `--mirror` to automatically add the swapped (black, white) pairing for
+# each line below. Use `--resume` to skip pairings already in the DB for the
+# same (white, black, white_version, black_version) tuple.
+#
+# Available bundled engines (see referee/containers/): mzinga, mzinga-cpp, nokamute
+
+mzinga,high-hive-cpp:learning-post-merge
+nokamute,high-hive-cpp:learning-post-merge
