@@ -1,8 +1,8 @@
 # High Hive C++ Implementation
 
-- Version **0.1**
-- Last modify: **13/03/2026**
-- Last modifier: **Enrico**
+- Version **0.2**
+- Last modify: **19/04/2026**
+- Last modifier: **Ivan**
 
 
 *The following is a description of the Hive Bot implementation in *C++* language*. \
@@ -11,28 +11,52 @@
 
 ## 1. Structure of `src/` folder
 ``` markdown
-└── src/                        # Source code for C++ implementation   
-    ├── headers/                # Headers file
-        ├── board.h             # describes the board 
-        ├── coords.h            # describes the coordinate system 
-        ├── engine.h            # defines the engine for choosing the best move
-        ├── generator.h         # generates all the possible valid moves
-        ├── moves.h             # defines the pieces moves
-        ├── pieces.h            # defines the pieces
-        ├── rules.h             # takes care of all the Hive rules
-        ├── state.h             # defines the state of the play game
-        ├── uhp.h               # defines the protocol and bridges the inputs to the backend
-        └── utils.h             # defines utils functions for the UHP implementation
-        
+└── src/                            # Source code for C++ implementation
+    ├── headers/                    # Core engine headers
+    │   ├── board.h                 # describes the board
+    │   ├── coords.h                # describes the coordinate system
+    │   ├── engine.h                # Engine interface + RandomEngine + AlphaZeroEngine
+    │   ├── generator.h             # generates all the possible valid moves
+    │   ├── moves.h                 # defines the pieces moves
+    │   ├── pieces.h                # defines the pieces
+    │   ├── rules.h                 # takes care of all the Hive rules
+    │   ├── state.h                 # defines the state of the play game
+    │   ├── uhp.h                   # UHP protocol and default engine wiring
+    │   └── utils.h                 # utils functions for the UHP implementation
+    │
     ├── board.cpp
-    ├── engine.cpp
+    ├── engine.cpp                  # RandomEngine + AlphaZeroEngine implementations
     ├── generator.cpp
     ├── moves.cpp
     ├── rules.cpp
     ├── state.cpp
     ├── uhp.cpp
     ├── utils.cpp
-    └── MAIN.CPP                # entry point to the UHP bot 
+    ├── main.cpp                    # entry point to the UHP bot
+    │
+    └── alphaZeroEngine/            # AlphaZero learning pipeline (LibTorch)
+        ├── alphazero_engine.h      # legacy stub (the class lives in ../headers/engine.h)
+        ├── config/headers/config.h # all hyperparameters (MCTS, NN, training)
+        ├── nn/                     # Neural network
+        │   ├── headers/neural_net.h
+        │   ├── headers/state_encoder.h
+        │   ├── headers/action_encoder.h
+        │   ├── neural_net.cpp      # HiveNet (19 residual blocks, 256 filters, dual head)
+        │   ├── state_encoder.cpp   # board -> (24, 26, 26) tensor
+        │   └── action_encoder.cpp  # move <-> policy index, 7 * 28 * 28 = 5488 actions
+        ├── mcts/
+        │   ├── headers/mcts.h
+        │   └── mcts.cpp            # PUCT MCTS with time-budgeted search
+        ├── training/
+        │   ├── headers/{replay_buffer,self_play,trainer}.h
+        │   ├── replay_buffer.cpp
+        │   ├── self_play.cpp       # self-play game generation
+        │   └── trainer.cpp         # supervised + self-play training loops
+        ├── data/
+        │   ├── headers/sgf_parser.h
+        │   └── sgf_parser.cpp      # boardspace.net SGF ingestion
+        └── checkpoints/
+            └── pretrained_best.pt  # default model loaded by AlphaZeroEngine
 ```
 
 ---
@@ -40,7 +64,9 @@
 ## 2. The Bot flux
 The entry point to play against High Hive bot is `main.cpp`. \
 The first action is the so-called *greeting* between the two players, meaning that each of them shows its name, its version, and the Hive game version which is able to play. \
-Currently the **High Hive bot** is at **Version 0.1** meaning that only a random engine is able to play under-the-hood; the bots plays a **Hive Version 'Base+MLP'**, meaning that all the existing extensions are included: *Mosquito*, *Ladybug* and *Pillbug*. 
+The **High Hive bot** is at **Version 0.2**: two engines are now available under-the-hood, a `RandomEngine` (baseline) and an `AlphaZeroEngine` (MCTS + CNN, LibTorch). The bot plays a **Hive Version 'Base+MLP'**, meaning that all the existing extensions are included: *Mosquito*, *Ladybug* and *Pillbug*.
+
+The active engine is chosen at **compile time** inside [`cpp/src/headers/uhp.h`](src/headers/uhp.h): if the macro `USE_RANDOM_ENGINE` is defined the `UhpHandler` instantiates a `RandomEngine`, otherwise it defaults to an `AlphaZeroEngine` loading the checkpoint at `alphaZeroEngine/checkpoints/pretrained_best.pt` with a time budget of `4800 ms` per move. Both engines implement the polymorphic `Hive::Engine` interface defined in [`engine.h`](src/headers/engine.h), so `UhpHandler` talks to them through `engine->getBestMove(state, validMoves)` and never needs to know which one is active.
 
 Passing the greeting, a UHP loop (defined in `uhp.cpp`) starts, meaning that a `state`, an `uhpBoard` and a `moveHistory` are intialized. \
 The `state`, in particular, internally defines the board, the current player and its turn and the players hands, plus some useful extra information. \
@@ -183,22 +209,62 @@ A method `neighborAdjacent` returns the two adjacent neighbors of two adjacent t
 
 
 ### 3.3 The Engines
-Currently, the engines implemented are the following:
-- `RandomEngine`: randomly chooses a move among a given set of `validMoves`
+The engines implemented are the following:
+- `RandomEngine`: randomly chooses a move among a given set of `validMoves` (used as baseline).
+- `AlphaZeroEngine`: selects a move via **Monte Carlo Tree Search** guided by a convolutional neural network (`HiveNet`) loaded from a checkpoint. This is the default engine.
 
-Notice how the current approach of the engines always consists in chose among a set of given possible moves the "best" one. \
-This implies, e.g., that the best move is currently affected by a (small) overhead since before the call of the valid moves generator is performed. \
-To change this behavior, please modify the `getBestMove` call in `UhpHandler::cmdBestMove` call at line 228 in [uhp.cpp](./src/uhp.cpp#L228). \
-For example, the call at [line 218](./src/uhp.cpp#L218) at the `generateMoves` method can be removed or applied only in certain cases.
+Both engines are declared in [`engine.h`](src/headers/engine.h) and implement the abstract interface
+```cpp
+class Engine {
+    virtual Move getBestMove(const State& state, const std::vector<Move>& validMoves) = 0;
+    virtual std::string getName() = 0;
+};
+```
+so that `UhpHandler` in `uhp.cpp` holds a single `std::unique_ptr<Engine>` and is agnostic to which engine is actually running. The engine is chosen at compile time (see [Section 2](#2-the-bot-flux)).
+
+Notice how the current approach of the engines always consists in choosing among a set of given possible moves the "best" one. \
+This implies, e.g., that the best move is currently affected by a (small) overhead since before the call the valid moves generator is performed. \
+To change this behavior, modify the `getBestMove` call in `UhpHandler::cmdBestMove` at line 240 in [uhp.cpp](./src/uhp.cpp#L240) and/or the `generateMoves` call at line 231. For `AlphaZeroEngine` the `validMoves` vector is actually used only as a fallback in the case in which MCTS returns an empty visit map.
 
 #### 3.3.1 The Random Engine
 The `RandomEngine` randomly chooses a move among a list of valid moves.
 
-The method chacaterizing the engine is `RandomEngine::getBestMove`. \
-It accepts a `Board`, a `Color` indicating the current player, a vector containing its `hand` and a vector containing the `validMoves`. \
+The method characterizing the engine is `RandomEngine::getBestMove`. \
+It accepts a `State` and a vector containing the `validMoves`. \
 Notice how the validity of the moves is never checked.
 The method at first checks whether the `validMoves` is empty or not; if so, it chooses a `Move::Pass` move, filling the move with placeholder tags as `Move.piece.Color = White, Move.piece.Bug = Ant, Move.piece.id = 0, Move.from = {0, 0}, Move.to = {0, 0}` and returns.
 Then, the method simply uses a non-deterministic seed to extract an element from the `validMoves` non-empty vector and returns that element.
+
+#### 3.3.2 The AlphaZero Engine
+The `AlphaZeroEngine` drives the bot with a CNN-guided MCTS, following the AlphaZero blueprint. Its entire pipeline lives under [`cpp/src/alphaZeroEngine/`](src/alphaZeroEngine) and is compiled unconditionally — `LibTorch` is a required dependency of the project (see [`cpp/CMakeLists.txt`](CMakeLists.txt)).
+
+**Construction** (inline in [`engine.h`](src/headers/engine.h)):
+1. Instantiate an empty `Learning::HiveNet`.
+2. Load the checkpoint passed as `modelPath` onto the CPU via `torch::serialize::InputArchive`. Loading to CPU first allows checkpoints saved on a CUDA machine to be consumed on a CPU-only host.
+3. Switch the network to `eval()` mode.
+4. If CUDA is available, move the network to GPU and cast to half precision (`torch::kHalf`) to keep inference fast within the UHP time budget.
+5. Build a `Learning::MCTS` wrapping the network.
+
+**`getBestMove`** (in [`engine.cpp`](src/engine.cpp)):
+1. If `validMoves` is empty, return a `Move::Pass` with placeholder fields.
+2. Copy the `State` (MCTS applies/undoes moves internally during rollouts).
+3. Reset the MCTS tree (`mcts_->reset()`) — no tree reuse across UHP turns.
+4. Run `mcts_->searchWithBudget(state, chrono::milliseconds(timeBudget_), /*addNoise=*/false)` which returns a vector of `(Move, visitCount)` pairs.
+5. If the visit map is empty, fall back to `validMoves[0]`.
+6. Otherwise pick the action with `MCTS::selectAction(visits, /*temperature=*/0.0f)` (greedy, i.e. argmax of visits).
+
+**Key components**:
+- `alphaZeroEngine/nn/neural_net.cpp` — `HiveNet`: `NUM_RESIDUAL_BLOCKS=19` residual blocks with `NUM_FILTERS=256`, a policy head (`POLICY_CHANNELS=2` conv + linear over the 5488-dim action space) and a value head (`VALUE_CHANNELS=1` conv + `VALUE_HIDDEN=256` MLP + `tanh`).
+- `alphaZeroEngine/nn/state_encoder.cpp` — encodes a `State` into a tensor of shape `(NUM_CHANNELS=24, GRID_SIZE=26, GRID_SIZE=26)` that the CNN consumes.
+- `alphaZeroEngine/nn/action_encoder.cpp` — bidirectional mapping between a `Move` and a flat action index in `NUM_DIRECTIONS(7) * NUM_PIECE_TYPES(28) * NUM_PIECE_TYPES(28) = 5488`. The 7 directions are the 6 hex directions plus one "on top" slot for beetles and placements.
+- `alphaZeroEngine/mcts/mcts.cpp` — PUCT MCTS with `C_PUCT=2.5`, Dirichlet noise (`alpha=0.15`, `epsilon=0.25`) at the root when `addNoise=true`. Supports both simulation-count budget and wall-clock budget.
+- `alphaZeroEngine/training/trainer.cpp` + `self_play.cpp` + `replay_buffer.cpp` — supervised pretraining (on SGF games) and AlphaZero-style self-play loop (`SELF_PLAY_GAMES=256`, `TRAIN_STEPS_PER_ITER=1000`, `EVAL_THRESHOLD=0.55` win-rate to promote a new model). Not exercised by `uhp`; used by the separate `hive_pretrain` executable.
+- `alphaZeroEngine/data/sgf_parser.cpp` — ingests boardspace.net SGF dumps for the supervised pretraining phase.
+- `alphaZeroEngine/config/headers/config.h` — single place holding *all* the hyperparameters above, in the `Hive::Learning` namespace.
+
+**Checkpoint**: `alphaZeroEngine/checkpoints/pretrained_best.pt` is tracked in the repo and is the result of `PRETRAIN_EPOCHS=30` of supervised training on SGF data. The CMake configure step copies the whole `checkpoints/` folder into the build tree, so the relative path hard-coded in `uhp.h` resolves at runtime.
+
+**Legacy note**: `alphaZeroEngine/alphazero_engine.h` still exists but its class definition is entirely commented out — the real `AlphaZeroEngine` lives in `headers/engine.h`. The file is kept around as documentation of the earlier `#ifdef ENABLE_LEARNING` wiring that has since been removed.
 
 
 ### 3.4 The Generator of the moves
