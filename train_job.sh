@@ -2,6 +2,7 @@
 #SBATCH --job-name=hive-selfplay
 #SBATCH --output=hive-selfplay-%j.out
 #SBATCH --error=hive-selfplay-%j.err
+#SBATCH --partition=lovelace
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -57,7 +58,12 @@ mkdir -p "$CHECKPOINT_DIR"
 
 module load apptainer
 
+# stdbuf -oL line-buffers hive_train's stdout so that progress lines (CUDA
+# detection, "=== Iteration N ===", per-step training losses, etc.) appear
+# in the SLURM .out file as they are emitted. Without it stdout is fully
+# buffered when redirected to a file, hiding progress for hours.
 apptainer exec --nv "$CONTAINER" \
+    stdbuf -oL -eL \
     "$REPO_DIR/cpp/build/hive_train" \
     --iterations "$ITERATIONS" \
     --checkpoint-dir "$CHECKPOINT_DIR" \
