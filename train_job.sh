@@ -22,19 +22,29 @@ CONTAINER="$HOME/hive_pretrain.sif"
 # Number of self-play iterations to run in this single job.
 # Each iteration is ~3-6h on one GPU at default config (256 self-play games,
 # 800 MCTS sims, 1000 train steps, 400 eval games), so 4 fits comfortably in
-# the 24h SLURM ceiling with margin. Resubmit with RESUME_FROM updated to
-# continue training across jobs.
+# the 24h SLURM ceiling with margin. To continue across jobs just resubmit:
+# the script picks up the newest checkpoint from CHECKPOINT_DIR automatically.
 ITERATIONS=4
 
 # Where new checkpoints (latest_iter_N.pt, best_iter_N.pt) are written.
 CHECKPOINT_DIR="$HOME/checkpoints/selfplay"
 
-# Starting checkpoint (full path). For the first self-play job this points at
-# the supervised pretrained model that ships in the repo. For subsequent jobs
-# point it at the latest_iter_N.pt produced by the previous job (the trainer
-# always writes one of these per iteration, regardless of promotion).
-RESUME_FROM="$REPO_DIR/cpp/src/alphaZeroEngine/checkpoints/pretrained_best.pt"
+# Supervised pretrained model that ships in the repo. Used the very first
+# time, before any self-play checkpoint exists.
+PRETRAINED_FALLBACK="$REPO_DIR/cpp/src/alphaZeroEngine/checkpoints/pretrained_best.pt"
 # -----------------------------------
+
+# Auto-resume: pick the highest-numbered latest_iter_N.pt in CHECKPOINT_DIR
+# if any exist, else fall back to the supervised pretrained model. `ls -v`
+# does natural ordering so latest_iter_10.pt beats latest_iter_9.pt.
+LATEST_CHECKPOINT=$(ls -1v "$CHECKPOINT_DIR"/latest_iter_*.pt 2>/dev/null | tail -1)
+if [ -n "$LATEST_CHECKPOINT" ]; then
+    RESUME_FROM="$LATEST_CHECKPOINT"
+    echo "[auto-resume] Found prior self-play checkpoint: $RESUME_FROM"
+else
+    RESUME_FROM="$PRETRAINED_FALLBACK"
+    echo "[auto-resume] No prior self-play checkpoint, starting from pretrained: $RESUME_FROM"
+fi
 
 echo "Job started: $(date)"
 echo "Node: $(hostname)"
