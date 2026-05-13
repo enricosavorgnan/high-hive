@@ -108,7 +108,7 @@ namespace Hive::Moves {
         const bool canLift = RuleEngine::canLiftPiece(board, prop, articulationPoints);
 
         // Mosquito on top of the hive: acts as a beetle
-        if (board.height(prop) > 1) {
+        if (board.height(prop) > 1 && canLift) {
             getBeetleMoves(board, prop, targets);
             return;
         }
@@ -179,6 +179,8 @@ namespace Hive::Moves {
         std::vector<Coord> validSources;
         std::vector<Coord> validDestinations;
         std::array<Coord, 6> neighbors = coordNeighbors(prop);
+
+        if (board.height(prop) > 1) return;
 
         // Phase 1. Find valid pieces to drag
         for (const auto& neighbor: neighbors) {

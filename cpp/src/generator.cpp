@@ -109,11 +109,13 @@ namespace Hive {
                     case Bug::Grasshopper: Moves::getGrasshopperMoves(board, origin, normalTargets); break;
                     case Bug::Ant:         Moves::getAntMoves(board, origin, normalTargets); break;
                     case Bug::Ladybug:     Moves::getLadybugMoves(board, origin, normalTargets); break;
-                    case Bug::Pillbug:     Moves::getPillbugMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints);;
-                    case Bug::Mosquito:    Moves::getMosquitoMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints);;
+                    case Bug::Pillbug:     Moves::getPillbugMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints); break;
+                    case Bug::Mosquito:    Moves::getMosquitoMoves(board, origin, normalTargets, state.lastMovedPieceCoord(), dragTargets, articulationPoints); break;
                 }
             }
 
+            // If pieces cannot move, Pillbugs (or Mosquitoes acting as Pillbugs) can still drag other pieces
+            // They can do so only if they are
             else if (topPiece->bug == Bug::Pillbug) {
                 Moves::getPillbugDragMoves(board, origin, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
             } 
