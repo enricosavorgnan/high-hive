@@ -16,6 +16,12 @@ namespace Hive::Learning {
 
         // Clone model as best model
         bestModel_ = HiveNet();
+        // Mirror model_'s device/dtype so self-play inference runs where
+        // model_ lives (CUDA when available). Without this, bestModel_ stays
+        // on CPU and self-play silently falls back to CPU inference — no
+        // crash, just orders of magnitude slower.
+        auto srcDevice = model_->parameters().front().device();
+        bestModel_->to(srcDevice);
         // Copy parameters from model_ to bestModel_
         {
             torch::NoGradGuard no_grad;
