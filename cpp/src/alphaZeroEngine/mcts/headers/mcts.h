@@ -92,8 +92,12 @@ namespace Hive::Learning {
         // temp→0: argmax
         static int selectAction(const std::vector<int>& visitCounts, float temperature);
 
-        // Advance the tree by reusing the subtree for the chosen action
-        void advanceTree(int action);
+        // Advance the tree by reusing the subtree for the chosen move.
+        // Matches on Move identity (not action index), because the action
+        // encoding is lossy: multiple distinct legal moves can share the
+        // same action int, so action-only matching can promote the wrong
+        // subtree and cache moves against a phantom board state.
+        void advanceTree(const Move& selectedMove);
 
         // Reset the tree
         void reset();

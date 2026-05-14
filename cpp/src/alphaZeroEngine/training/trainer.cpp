@@ -431,12 +431,11 @@ namespace Hive::Learning {
                     }
                     int bestIdx = MCTS::selectAction(visits, /*temperature=*/0.0f);
                     const Move& bestMove = moveVisits[bestIdx].first;
-                    int bestAction = ActionEncoder::moveToAction(bestMove, state);
                     state.applyMove(bestMove);
 
-                    // Advance both trees (action computed before apply)
-                    mctsA.advanceTree(bestAction);
-                    mctsB.advanceTree(bestAction);
+                    // Advance both trees by Move identity (see MCTS::advanceTree)
+                    mctsA.advanceTree(bestMove);
+                    mctsB.advanceTree(bestMove);
                 }
 
                 ++moveCount;

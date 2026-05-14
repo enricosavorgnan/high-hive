@@ -7,6 +7,24 @@
 
 namespace Hive::Learning {
 
+    namespace {
+        // Move identity comparison used by advanceTree to find the cached
+        // child whose move matches the one the caller actually applied.
+        // Type-aware because Move's `from` is uninitialized for Place and
+        // `pillbug` is uninitialized for non-Drag moves.
+        bool movesEquivalent(const Move& a, const Move& b) {
+            if (a.type != b.type) return false;
+            if (a.type == Move::Pass) return true;
+            if (!(a.piece == b.piece)) return false;
+            switch (a.type) {
+                case Move::Place:     return a.to == b.to;
+                case Move::PieceMove: return a.from == b.from && a.to == b.to;
+                case Move::Drag:      return a.from == b.from && a.to == b.to && a.pillbug == b.pillbug;
+                default:              return false;
+            }
+        }
+    }
+
     MCTS::MCTS(HiveNet network)
         : network_(std::move(network))
         , root_(std::make_unique<MCTSNode>())
@@ -16,21 +34,21 @@ namespace Hive::Learning {
         root_ = std::make_unique<MCTSNode>();
     }
 
-    void MCTS::advanceTree(int action) {
+    void MCTS::advanceTree(const Move& selectedMove) {
         if (!root_ || !root_->isExpanded) {
             root_ = std::make_unique<MCTSNode>();
             return;
         }
 
         for (auto& child : root_->children) {
-            if (child->action == action) {
+            if (movesEquivalent(child->move, selectedMove)) {
                 child->parent = nullptr;
                 root_ = std::move(child);
                 return;
             }
         }
 
-        // Action not found in children — start fresh
+        // Move not found in children — start fresh
         root_ = std::make_unique<MCTSNode>();
     }
 
