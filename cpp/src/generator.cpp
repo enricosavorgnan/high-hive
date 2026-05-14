@@ -114,6 +114,8 @@ namespace Hive {
                 }
             }
 
+            // If pieces cannot move, Pillbugs (or Mosquitoes acting as Pillbugs) can still drag other pieces
+            // They can do so only if they are
             else if (topPiece->bug == Bug::Pillbug) {
                 Moves::getPillbugDragMoves(board, origin, state.lastMovedPieceCoord(), dragTargets, articulationPoints);
             } 
