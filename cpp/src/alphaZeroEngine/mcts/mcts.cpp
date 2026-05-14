@@ -68,9 +68,13 @@ namespace Hive::Learning {
             addDirichletNoise(root_.get());
         }
 
-        // Run simulations
-        for (int sim = 0; sim < MCTS_SIMS; ++sim) {
-            simulate(state);
+        // Run simulations in batched chunks so the GPU does one forward pass
+        // per MCTS_BATCH leaves instead of one per leaf.
+        int simsRemaining = MCTS_SIMS;
+        while (simsRemaining > 0) {
+            int K = std::min(simsRemaining, MCTS_BATCH);
+            simulateBatch(state, K);
+            simsRemaining -= K;
         }
 
         // Collect results from cached moves (no legalMoves() call needed)
@@ -101,10 +105,10 @@ namespace Hive::Learning {
             addDirichletNoise(root_.get());
         }
 
-        // Run simulations until time budget is exhausted
+        // Run simulations in batched chunks until deadline.
         auto deadline = std::chrono::steady_clock::now() + budget;
         while (std::chrono::steady_clock::now() < deadline) {
-            simulate(state);
+            simulateBatch(state, MCTS_BATCH);
         }
 
         // Collect results from cached moves
@@ -116,35 +120,149 @@ namespace Hive::Learning {
         return results;
     }
 
-    void MCTS::simulate(State& state) {
-        // 1. SELECT: traverse tree following PUCT until we reach a leaf
-        MCTSNode* node = root_.get();
-        int depth = 0;
+    namespace {
+        // Per-pending-sim record used by simulateBatch.
+        struct PendingLeaf {
+            std::vector<MCTSNode*> path;   // root → leaf
+            torch::Tensor stateTensor;     // [C, H, W], CPU
+            torch::Tensor mask;            // [ACTION_SPACE], CPU
+            State leafState;               // copy at the leaf (used by expansion)
+        };
 
-        while (node->isExpanded && !node->isTerminal) {
-            node = node->selectChild();
-            if (!node) break;
-
-            state.applyMove(node->move);
-            ++depth;
+        // Back-up `value` from leaf to root, negating at each level (alternating
+        // player perspective), and remove the virtual loss that the selection
+        // phase added to each non-root node on the path.
+        void backpropWithVirtualLoss(const std::vector<MCTSNode*>& path, float value) {
+            for (auto it = path.rbegin(); it != path.rend(); ++it) {
+                MCTSNode* node = *it;
+                node->visitCount += 1;
+                node->totalValue += value;
+                if (node != path.front() && node->virtualLoss > 0) {
+                    --(node->virtualLoss);
+                }
+                value = -value;
+            }
         }
 
-        // 2. EXPAND & EVALUATE
-        float value;
-        if (node && node->isTerminal) {
-            value = node->terminalValue;
-        } else if (node) {
-            value = expand(node, state);
-        } else {
-            value = 0.0f;
+        // Best-effort undo: pop the moves applied during a single selection
+        // traversal so the next selection starts from the actual root state.
+        void rewindPath(State& state, std::size_t pathSize) {
+            // path[0] is the root and corresponds to no applied move
+            for (std::size_t i = 1; i < pathSize; ++i) {
+                state.undoLastMove();
+            }
+        }
+    } // namespace
+
+    void MCTS::simulateBatch(State& state, int K) {
+        if (K <= 0) return;
+
+        std::vector<PendingLeaf> pending;
+        pending.reserve(static_cast<std::size_t>(K));
+
+        // Phase 1: K diversified selection traversals.
+        // Virtual loss applied along each path keeps subsequent traversals
+        // from collapsing onto the same leaf.
+        for (int k = 0; k < K; ++k) {
+            MCTSNode* node = root_.get();
+            std::vector<MCTSNode*> path{node};
+
+            while (node->isExpanded && !node->isTerminal) {
+                MCTSNode* child = node->selectChild();
+                if (!child) break;
+                child->virtualLoss += 1;
+                state.applyMove(child->move);
+                path.push_back(child);
+                node = child;
+            }
+
+            // Resolve terminal status without an NN call when possible.
+            bool resolved = false;
+            float immediate = 0.0f;
+            if (node && node->isTerminal) {
+                immediate = node->terminalValue;
+                resolved = true;
+            } else if (node && state.isTerminal()) {
+                node->isTerminal = true;
+                Color prevPlayer = rival(state.toMove());
+                node->terminalValue = state.resultForColor(prevPlayer);
+                immediate = node->terminalValue;
+                resolved = true;
+            }
+
+            if (resolved || !node) {
+                backpropWithVirtualLoss(path, resolved ? immediate : 0.0f);
+                rewindPath(state, path.size());
+                continue;
+            }
+
+            // Defer to batched forward pass. Snapshot encode/mask + state copy
+            // now while the board reflects the leaf position.
+            PendingLeaf leaf;
+            leaf.path = std::move(path);
+            leaf.stateTensor = StateEncoder::encode(state);
+            leaf.mask = ActionEncoder::legalMask(state);
+            leaf.leafState = state; // copy at leaf
+            rewindPath(state, leaf.path.size());
+            pending.push_back(std::move(leaf));
         }
 
-        // 3. BACKPROP: propagate value up, negating at each level
-        backpropagate(node, value);
+        if (pending.empty()) return;
 
-        // Undo all moves
-        for (int i = 0; i < depth; ++i) {
-            state.undoLastMove();
+        // Phase 2: one batched NN forward pass.
+        torch::NoGradGuard no_grad;
+        std::vector<torch::Tensor> stateTensors;
+        std::vector<torch::Tensor> masks;
+        stateTensors.reserve(pending.size());
+        masks.reserve(pending.size());
+        for (auto& p : pending) {
+            stateTensors.push_back(p.stateTensor);
+            masks.push_back(p.mask);
+        }
+        auto batchState = torch::stack(stateTensors);                // [B, C, H, W]
+        auto batchMask = torch::stack(masks);                        // [B, ACTION_SPACE]
+
+        auto device = network_->parameters().front().device();
+        auto dtype = network_->parameters().front().dtype();
+        batchState = batchState.to(device, dtype);
+        batchMask = batchMask.to(device, dtype);
+
+        auto [batchPolicy, batchValue] = network_->forward_masked(batchState, batchMask);
+        auto policyCpu = batchPolicy.to(torch::kFloat32).cpu();      // [B, ACTION_SPACE]
+        auto valueCpu = batchValue.to(torch::kFloat32).cpu();        // [B, 1]
+        auto valueAcc = valueCpu.accessor<float, 2>();
+
+        // Phase 3: expand each leaf (skipping duplicates already expanded by
+        // an earlier item in the same batch) and back-propagate the NN value.
+        for (std::size_t i = 0; i < pending.size(); ++i) {
+            MCTSNode* leafNode = pending[i].path.back();
+            float value = valueAcc[i][0];
+
+            if (!leafNode->isExpanded) {
+                leafNode->isExpanded = true;
+
+                auto legalMoves = MoveGenerator::generateMoves(pending[i].leafState);
+                if (!legalMoves.empty()) {
+                    auto policySlice = policyCpu[i];                 // [ACTION_SPACE]
+                    auto policyAcc = policySlice.accessor<float, 1>();
+                    leafNode->children.reserve(legalMoves.size());
+                    for (const auto& move : legalMoves) {
+                        int action = ActionEncoder::moveToAction(move, pending[i].leafState);
+                        auto child = std::make_unique<MCTSNode>();
+                        child->parent = leafNode;
+                        child->action = action;
+                        child->move = move;
+                        child->prior = policyAcc[action];
+                        leafNode->children.push_back(std::move(child));
+                    }
+                }
+                // If legalMoves is empty, treat as a pass-only node with value
+                // coming from the NN estimate. Children stay empty; a future
+                // selection that lands here will see isExpanded=true and
+                // selectChild() returning null, which terminates the descent.
+            }
+
+            backpropWithVirtualLoss(pending[i].path, value);
         }
     }
 

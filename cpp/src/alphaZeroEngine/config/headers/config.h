@@ -50,6 +50,8 @@ namespace Hive::Learning {
 
     // --- MCTS ---
     constexpr int MCTS_SIMS = 800;          // Number of MCTS simulations per move
+    constexpr int MCTS_BATCH = 16;          // Parallel leaves per batched NN forward pass
+    constexpr float VIRTUAL_LOSS = 1.0f;    // Per-pending-sim penalty applied during selection
     constexpr float C_PUCT = 2.5f;          // Exploration constant in PUCT formula
     constexpr float DIRICHLET_ALPHA = 0.15f;// Dirichlet noise parameter
     constexpr float DIRICHLET_EPSILON = 0.25f; // Noise mixing weight

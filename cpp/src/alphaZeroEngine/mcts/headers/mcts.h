@@ -36,6 +36,7 @@ namespace Hive::Learning {
         float prior = 0.0f;     // P(a) from NN policy
         int visitCount = 0;     // N(s,a)
         float totalValue = 0.0f;// W(s,a) - accumulated value
+        int virtualLoss = 0;    // Pending sims that selected this node but haven't backed up yet
 
         bool isExpanded = false;
         bool isTerminal = false;
@@ -43,16 +44,26 @@ namespace Hive::Learning {
 
         std::vector<std::unique_ptr<MCTSNode>> children;
 
+        // Effective N and W with virtual loss folded in (pessimistic estimate for
+        // any path currently in flight, which pushes sibling selections elsewhere).
+        float effectiveVisits() const {
+            return static_cast<float>(visitCount + virtualLoss);
+        }
+        float effectiveValue() const {
+            return totalValue - static_cast<float>(virtualLoss) * VIRTUAL_LOSS;
+        }
+
         // Q(s,a) = W(s,a) / N(s,a)
         float qValue() const {
-            return (visitCount > 0) ? totalValue / static_cast<float>(visitCount) : 0.0f;
+            float n = effectiveVisits();
+            return (n > 0.0f) ? effectiveValue() / n : 0.0f;
         }
 
         // PUCT selection score
         float puctScore(int parentVisits) const {
             float exploration = C_PUCT * prior *
                 std::sqrt(static_cast<float>(parentVisits)) /
-                (1.0f + static_cast<float>(visitCount));
+                (1.0f + effectiveVisits());
             return qValue() + exploration;
         }
 
@@ -60,9 +71,10 @@ namespace Hive::Learning {
         MCTSNode* selectChild() {
             MCTSNode* best = nullptr;
             float bestScore = -1e9f;
+            int parentN = visitCount + virtualLoss;
 
             for (auto& child : children) {
-                float score = child->puctScore(visitCount);
+                float score = child->puctScore(parentN);
                 if (score > bestScore) {
                     bestScore = score;
                     best = child.get();
@@ -107,13 +119,18 @@ namespace Hive::Learning {
         std::unique_ptr<MCTSNode> root_;
         std::mt19937 rng_;
 
-        // Single simulation: select → expand → backprop
-        void simulate(State& state);
+        // Run a batch of `K` simulations in parallel: descend K times with
+        // virtual loss, then evaluate all leaves in a single batched NN
+        // forward pass, then expand and backprop each. Saturates the GPU.
+        void simulateBatch(State& state, int K);
 
-        // Expand a leaf node using the neural network
+        // Expand the root using a single-sample NN forward pass.
+        // Used once before the simulation loop; the batched leaf expansion
+        // path inside simulateBatch handles every other expansion.
         float expand(MCTSNode* node, State& state);
 
-        // Backpropagate a value up the tree
+        // Backpropagate a value up the tree (used for root-only path that
+        // doesn't carry virtual loss).
         static void backpropagate(MCTSNode* node, float value);
 
         // Add Dirichlet noise to root priors
