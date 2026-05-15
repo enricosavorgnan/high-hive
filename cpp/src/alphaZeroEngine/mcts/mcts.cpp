@@ -12,10 +12,6 @@ namespace Hive::Learning {
         , root_(std::make_unique<MCTSNode>())
         , rng_(std::random_device{}()) {}
 
-    void MCTS::reset() {
-        root_ = std::make_unique<MCTSNode>();
-    }
-
     void MCTS::advanceTree(int action) {
         if (!root_ || !root_->isExpanded) {
             root_ = std::make_unique<MCTSNode>();
@@ -108,7 +104,9 @@ namespace Hive::Learning {
             if (!node) break;
 
             state.applyMove(node->move);
-            ++depth;
+            depth++;
+
+            maxSearchDepth_ = std::max(maxSearchDepth_, depth);
         }
 
         // 2. EXPAND & EVALUATE
@@ -244,4 +242,21 @@ namespace Hive::Learning {
         return dist(rng);
     }
 
+
+    EngineStats MCTS::getStats() const {
+        EngineStats stats;
+        stats.nodesExplored = root_->visitCount;
+        stats.maxDepth = maxSearchDepth_;
+
+        // Extract statistics for every evaluated move from the root
+        for (const auto& child : root_->children) {
+            stats.moveEvaluations.push_back({
+                child->move,         // Extracted directly from the node
+                child->visitCount,   // Corrected variable name
+                child->qValue(),     // Using the built-in method
+                child->prior         // Corrected variable name
+            });
+        }
+        return stats;
+    }
 } // namespace Hive::Learning

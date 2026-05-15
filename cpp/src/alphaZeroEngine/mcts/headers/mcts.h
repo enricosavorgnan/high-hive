@@ -3,6 +3,7 @@
 #include <torch/torch.h>
 #include "state.h"
 #include "moves.h"
+#include "engine.h"
 #include "alphaZeroEngine/nn/headers/neural_net.h"
 #include "alphaZeroEngine/nn/headers/state_encoder.h"
 #include "alphaZeroEngine/nn/headers/action_encoder.h"
@@ -96,12 +97,18 @@ namespace Hive::Learning {
         void advanceTree(int action);
 
         // Reset the tree
-        void reset();
+        void reset() {
+            root_ = std::make_unique<MCTSNode>();
+            maxSearchDepth_ = 0;
+        }
+
+        EngineStats getStats() const;
 
     private:
         HiveNet network_;
         std::unique_ptr<MCTSNode> root_;
         std::mt19937 rng_;
+        int maxSearchDepth_ = 0;
 
         // Single simulation: select → expand → backprop
         void simulate(State& state);

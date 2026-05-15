@@ -249,6 +249,43 @@ namespace Hive {
 
         const Move bestMove = engine->getBestMove(state, validMoves);
 
+        // --- Efficient Permanent Logging ---
+        auto& stream = const_cast<std::ofstream&>(logStream);
+
+        if (engine->isVerbose()) {
+            // Dynamically choose the output stream: File if open, otherwise Terminal (cerr)
+            std::ostream* outStream = logStream.is_open() ? &logStream : &std::cerr;
+            auto statsOpt = engine->getLastSearchStats();
+            if (statsOpt) {
+                const auto& stats = *statsOpt;
+
+                *outStream << "\n========== [Turn: " << moveHistory.size() / 2 + 1 << "] ==========\n";
+                *outStream << "Total Nodes Explored : " << stats.nodesExplored << "\n";
+                *outStream << "Max Search Depth     : " << stats.maxDepth << "\n";
+                *outStream << "--- Top 5 Moves Evaluated ---\n";
+
+                auto evals = stats.moveEvaluations;
+                size_t topN = std::min(evals.size(), size_t(5));
+
+                std::partial_sort(evals.begin(), evals.begin() + topN, evals.end(),
+                    [](const MoveEval& a, const MoveEval& b) {
+                        return a.visits > b.visits;
+                    });
+
+                for (size_t i = 0; i < topN; ++i) {
+                    const auto& e = evals[i];
+                    if (e.visits == 0) continue;
+                    *outStream << "Move: " << codec.moveToUhpString(e.move)
+                               << " | Visits: " << e.visits
+                               << " | Q-Value: " << e.qValue
+                               << " | Prior: " << e.priorProb << "\n";
+                }
+                *outStream << "===============================\n\n";
+
+                outStream->flush();
+            }
+        }
+
         std::cout << codec.moveToUhpString(bestMove) << "\n";
         std::cout << "ok\n";
     }

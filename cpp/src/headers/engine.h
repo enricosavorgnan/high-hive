@@ -4,8 +4,25 @@
 #include "state.h"
 #include <vector>
 #include <string>
+#include <optional>
 
 namespace Hive {
+
+    // Struct to hold evaluation metrics for a specific move
+    struct MoveEval {
+        Move move;
+        int visits;
+        float qValue;
+        float priorProb;
+    };
+
+    // Struct to hold aggregate statistichs of the last MCTS
+    struct EngineStats {
+        int nodesExplored;
+        int maxDepth;
+        std::vector<MoveEval> moveEvaluations;
+    };
+
 
     // Abstract base class for all game engines (Random, Minimax, AlphaZero, etc.)
     class Engine {
@@ -16,7 +33,13 @@ namespace Hive {
         // Receives the full game State (needed by MCTS for apply/undo).
         virtual Move getBestMove(const State& state, const std::vector<Move>& validMoves) = 0;
         virtual std::string getName() = 0;
+
         virtual void setTimeBudget(int timeMs) {}
+
+        // VERBOSE Mode Interfaces
+        virtual void setVerbose(bool verbose) {}
+        virtual bool isVerbose() const {return false; }
+        virtual std::optional<EngineStats> getLastSearchStats() const { return std::nullopt; }
     };
 
     // A purely random mover for baseline testing

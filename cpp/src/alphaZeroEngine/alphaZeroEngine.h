@@ -74,10 +74,19 @@ namespace Hive {
                       budgetMs_ = timeMs;
                   }
 
+             void setVerbose(bool verbose) override { verbose_ = verbose; }
+             bool isVerbose() const override { return verbose_; }
+
+             std::optional<EngineStats> getLastSearchStats() const override {
+                  if (mcts_) return mcts_->getStats();
+                  return std::nullopt;
+              }
+
          private:
               Learning::HiveNet network_{nullptr};
               std::unique_ptr<Learning::MCTS> mcts_;
               int budgetMs_;
+              bool verbose_ = false;
     };
 
 } // namespace Hive

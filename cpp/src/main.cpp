@@ -11,7 +11,9 @@ int main(int argc, char* argv[]) {
 
     std::string modelPath = "";
     std::string engineName = "RandomEngine";
+    std::string logFilePath = "";
     int timeBudget = 4500;
+    bool isVerbose = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -21,6 +23,10 @@ int main(int argc, char* argv[]) {
             modelPath = argv[++i];
         } else if (arg == "--time-budget" && i + 1 < argc) {
             timeBudget = std::stoi(argv[++i]);
+        } else if (arg == "--verbose") {
+            isVerbose = true;
+        } else if (arg == "--log-file" && i + 1 < argc) {
+            logFilePath = argv[++i];
         }
     }
 
@@ -39,7 +45,8 @@ int main(int argc, char* argv[]) {
         return 2;
     }
 
-    Hive::UhpHandler uhp(std::move(engine));
+    engine->setVerbose(isVerbose);
+    Hive::UhpHandler uhp(std::move(engine), logFilePath);
 
     uhp.cmdInfo();
     std::cout << std::flush;
