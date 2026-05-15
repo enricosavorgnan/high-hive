@@ -60,7 +60,9 @@ namespace Hive::Learning {
     constexpr float TEMP_LOW = 0.1f;        // Temperature for later moves
 
     // --- Training ---
-    constexpr int BATCH_SIZE = 512;
+    // Sized for a ~10 GiB MIG slice on Demetra's `lovelace` partition (shared
+    // with other tenants). Bumping back toward 512 needs a full A100 slice.
+    constexpr int BATCH_SIZE = 128;
     constexpr int REPLAY_BUFFER_SIZE = 500000;
     constexpr float LEARNING_RATE = 0.01f;
     constexpr float WEIGHT_DECAY = 1e-4f;
