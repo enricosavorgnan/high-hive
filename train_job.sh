@@ -3,10 +3,15 @@
 #SBATCH --output=hive-selfplay-%j.out
 #SBATCH --error=hive-selfplay-%j.err
 #SBATCH --partition=lovelace
-#SBATCH --gres=gpu:1
+# Specific 1g.20gb MIG slice (20 GiB, exclusive). Avoids the 1g.10gb slice
+# we got with a generic `gpu:1` — it's shared and OOM'd training at BATCH=512.
+# 20 GiB is plenty for our 19x256 ResNet at BATCH=128.
+#SBATCH --gres=gpu:1g.20gb:1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=32G
+# Batched MCTS pushed the bottleneck onto the GPU; ~1 CPU core busy during
+# self-play, so 4 leaves headroom for state encoding / move generation.
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=16G
 #SBATCH --time=24:00:00
 #
 # Submit with:    sbatch train_job.sh
