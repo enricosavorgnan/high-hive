@@ -129,6 +129,14 @@ namespace Hive::Learning {
         std::cout << "Average loss - Policy: " << avgPolicyLoss
                   << " | Value: " << avgValueLoss << "\n";
 
+        // 2b. Crash-safe checkpoint of the trained model BEFORE eval.
+        // Eval can take many hours and SLURM may kill the job mid-eval; this
+        // ensures the next sbatch resumes from the trained weights instead of
+        // re-running self-play from scratch. The end-of-iteration save below
+        // overwrites this with the final (promoted-or-reverted) model.
+        saveCheckpoint("latest_iter_" + std::to_string(iterationNum));
+        std::cout << "Post-training checkpoint saved (will be overwritten after eval).\n";
+
         // 3. Evaluation: new model vs best model
         std::cout << "Evaluating new model vs best model (" << EVAL_GAMES << " games)...\n";
         model_->eval();
