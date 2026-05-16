@@ -213,27 +213,64 @@ namespace Hive::Learning {
 
         if (pending.empty()) return;
 
-        // Phase 2: one batched NN forward pass.
-        torch::NoGradGuard no_grad;
-        std::vector<torch::Tensor> stateTensors;
+        // // Phase 2: one batched NN forward pass.
+        // torch::NoGradGuard no_grad;
+        // std::vector<torch::Tensor> stateTensors;
+        // std::vector<torch::Tensor> masks;
+        // stateTensors.reserve(pending.size());
+        // masks.reserve(pending.size());
+        // for (auto& p : pending) {
+        //     stateTensors.push_back(p.stateTensor);
+        //     masks.push_back(p.mask);
+        // }
+        // auto batchState = torch::stack(stateTensors);                // [B, C, H, W]
+        // auto batchMask = torch::stack(masks);                        // [B, ACTION_SPACE]
+        //
+        // auto device = network_->parameters().front().device();
+        // auto dtype = network_->parameters().front().dtype();
+        // batchState = batchState.to(device, dtype);
+        // batchMask = batchMask.to(device, dtype);
+        //
+        // auto [batchPolicy, batchValue] = network_->forward_masked(batchState, batchMask);
+        // auto policyCpu = batchPolicy.to(torch::kFloat32).cpu();      // [B, ACTION_SPACE]
+        // auto valueCpu = batchValue.to(torch::kFloat32).cpu();        // [B, 1]
+        // auto valueAcc = valueCpu.accessor<float, 2>();
+
+
+        // Phase 2: Batched random evaluation.
+        if (pending.empty()) return;
+
+        int64_t B = pending.size();
+
+        // 1. Extract and stack masks to zero out illegal moves
         std::vector<torch::Tensor> masks;
-        stateTensors.reserve(pending.size());
-        masks.reserve(pending.size());
+        masks.reserve(B);
         for (auto& p : pending) {
-            stateTensors.push_back(p.stateTensor);
             masks.push_back(p.mask);
         }
-        auto batchState = torch::stack(stateTensors);                // [B, C, H, W]
-        auto batchMask = torch::stack(masks);                        // [B, ACTION_SPACE]
+        auto batchMask = torch::stack(masks).to(torch::kFloat32); // [B, ACTION_SPACE]
+        int64_t actionSpace = batchMask.size(1);
 
-        auto device = network_->parameters().front().device();
-        auto dtype = network_->parameters().front().dtype();
-        batchState = batchState.to(device, dtype);
-        batchMask = batchMask.to(device, dtype);
+        // 2. Generate batched random policies [0, 1) and values [-1, 1)
+        torch::Tensor batchPolicy = torch::rand({B, actionSpace}, torch::kFloat32);
+        torch::Tensor batchValue = (torch::rand({B, 1}, torch::kFloat32) * 2.0f) - 1.0f;
 
-        auto [batchPolicy, batchValue] = network_->forward_masked(batchState, batchMask);
-        auto policyCpu = batchPolicy.to(torch::kFloat32).cpu();      // [B, ACTION_SPACE]
-        auto valueCpu = batchValue.to(torch::kFloat32).cpu();        // [B, 1]
+        // 3. Mask illegal moves
+        batchPolicy = batchPolicy * batchMask;
+
+        // 4. Normalize the policy distributions across dimension 1 (action space)
+        auto policySums = batchPolicy.sum(/*dim=*/1, /*keepdim=*/true); // [B, 1]
+        auto maskSums = batchMask.sum(/*dim=*/1, /*keepdim=*/true);     // [B, 1]
+
+        // Create a uniform fallback for any batch item where the random values were near zero
+        auto uniformFallback = batchMask / (maskSums + 1e-8f);
+
+        // If sum > 1e-6, normalize by the sum. Otherwise, apply the uniform fallback.
+        batchPolicy = torch::where(policySums > 1e-6f, batchPolicy / policySums, uniformFallback);
+
+        // 5. Map directly to CPU output variables for Phase 3
+        auto policyCpu = batchPolicy;                              // [B, ACTION_SPACE]
+        auto valueCpu = batchValue;                                // [B, 1]
         auto valueAcc = valueCpu.accessor<float, 2>();
 
         // Phase 3: expand each leaf (skipping duplicates already expanded by
@@ -290,21 +327,49 @@ namespace Hive::Learning {
         }
 
         // Neural network evaluation (device/dtype-aware for FP16 support)
-        torch::NoGradGuard no_grad;
-        auto stateTensor = StateEncoder::encode(state).unsqueeze(0); // [1, C, H, W]
-        auto mask = ActionEncoder::legalMask(state).unsqueeze(0);    // [1, ACTION_SPACE]
+        // torch::NoGradGuard no_grad;
+        // auto stateTensor = StateEncoder::encode(state).unsqueeze(0); // [1, C, H, W]
+        // auto mask = ActionEncoder::legalMask(state).unsqueeze(0);    // [1, ACTION_SPACE]
+        //
+        // auto device = network_->parameters().front().device();
+        // auto dtype = network_->parameters().front().dtype();
+        // stateTensor = stateTensor.to(device, dtype);
+        // mask = mask.to(device, dtype);
+        //
+        // auto [policy, value] = network_->forward_masked(stateTensor, mask);
+        //
+        // float nodeValue = value.to(torch::kFloat32).item<float>();
+        //
+        // // Create children with priors from policy, caching the Move
+        // auto policyAcc = policy.squeeze(0).to(torch::kFloat32).cpu(); // [ACTION_SPACE]
 
-        auto device = network_->parameters().front().device();
-        auto dtype = network_->parameters().front().dtype();
-        stateTensor = stateTensor.to(device, dtype);
-        mask = mask.to(device, dtype);
 
-        auto [policy, value] = network_->forward_masked(stateTensor, mask);
+        // 1. Generate a random uniform policy tensor [1, ACTION_SPACE] in range [0, 1)
+        torch::Tensor policy = torch::rand({1, ACTION_SPACE}, torch::kFloat32);
+
+        // 2. Generate a random state value [1, 1] mapped to the range [-1, 1)
+        torch::Tensor value = (torch::rand({1, 1}, torch::kFloat32) * 2.0f) - 1.0f;
+
+        // 3. Mask out illegal moves to ensure they receive 0 probability
+        auto mask = ActionEncoder::legalMask(state).unsqueeze(0);
+        policy = policy * mask;
+
+        // 4. Normalize the policy so the priors of legal moves sum to 1.0
+        float policySum = policy.sum().item<float>();
+        if (policySum > 1e-6f) {
+            policy = policy / policySum;
+        } else {
+            // Fallback: Uniform distribution over legal moves if random values were near 0
+            policy = mask / mask.sum();
+        }
 
         float nodeValue = value.to(torch::kFloat32).item<float>();
 
         // Create children with priors from policy, caching the Move
         auto policyAcc = policy.squeeze(0).to(torch::kFloat32).cpu(); // [ACTION_SPACE]
+
+
+
         node->children.reserve(legalMoves.size());
 
         for (const auto& move : legalMoves) {

@@ -48,6 +48,7 @@ namespace Hive {
             void cmdPass();
             void cmdValidMoves() const;
             void cmdBestMove(const std::vector<std::string>& chunks) const;
+            void cmdPerft(const std::vector<std::string>& chunks);
             void cmdUndo();
         };
 

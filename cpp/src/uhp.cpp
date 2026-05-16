@@ -30,6 +30,7 @@ namespace Hive {
             else if (cmd == "bestmove") cmdBestMove(chunks);
             else if (cmd == "undo") cmdUndo();
             else if (cmd == "options") cmdOptions();
+            else if (cmd == "perft") cmdPerft(chunks); // ADD THIS ROUTING
             else if (cmd == "exit") break;
 
             // Guarantee buffer flush to MZinga
@@ -317,6 +318,79 @@ namespace Hive {
     void UhpHandler::cmdOptions() {
         // TODO
         // Reserved for engine options
+        std::cout << "ok\n";
+    }
+
+
+    // --- Performance Test (Perft) ---
+
+    namespace {
+        // Recursive helper isolated to this compilation unit
+        uint64_t runPerft(State& state, int depth) {
+            if (depth == 0) return 1ULL;
+
+            std::vector<Move> moves = MoveGenerator::generateMoves(state);
+
+            // Micro-optimization: avoid applying/undoing at the frontier
+            if (depth == 1) return moves.size();
+
+            uint64_t nodes = 0;
+            for (const Move& m : moves) {
+                state.applyMove(m);
+                nodes += runPerft(state, depth - 1);
+                state.undoLastMove();
+            }
+            return nodes;
+        }
+    }
+
+    void UhpHandler::cmdPerft(const std::vector<std::string>& chunks) {
+        if (chunks.size() < 2) {
+            std::cout << "err Usage: perft <depth>\n";
+            return;
+        }
+
+        int depth = 0;
+        try {
+            depth = std::stoi(chunks[1]);
+        } catch (...) {
+            std::cout << "err Invalid depth parameter\n";
+            return;
+        }
+
+        if (depth <= 0) {
+            std::cout << "Nodes: 0\nok\n";
+            return;
+        }
+
+        auto start = std::chrono::high_resolution_clock::now();
+
+        std::vector<Move> validMoves = MoveGenerator::generateMoves(state);
+        uint64_t totalNodes = 0;
+
+        UhpCodec codec(state, uhpBoard);
+
+        // Standard "Divide" Perft implementation
+        for (const Move& move : validMoves) {
+            // Encode string BEFORE applying the move, so it matches the current uhpBoard text layer
+            std::string moveStr = codec.moveToUhpString(move);
+
+            state.applyMove(move);
+            uint64_t nodes = runPerft(state, depth - 1);
+            state.undoLastMove();
+
+            std::cout << moveStr << ": " << nodes << "\n";
+            totalNodes += nodes;
+        }
+
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end - start;
+
+        std::cout << "\nTotal Nodes: " << totalNodes << "\n";
+        std::cout << "Elapsed Time: " << elapsed.count() << " s\n";
+        if (elapsed.count() > 0) {
+            std::cout << "NPS: " << static_cast<uint64_t>(totalNodes / elapsed.count()) << "\n";
+        }
         std::cout << "ok\n";
     }
 

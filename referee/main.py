@@ -61,8 +61,13 @@ def create_stats_folder(runs):
     os.makedirs(log_dir, exist_ok=True)
 
     for run in range(runs):
-        open(os.path.join(log_dir, f"black/{run}.log"), "w").close()
-        open(os.path.join(log_dir, f"white/{run}.log"), "w").close()
+        # Create empty log files for each run, for both black and white players
+        for color in ["white", "black"]:
+            log_path = os.path.join(log_dir, color, f"{run}.log")
+            print()
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            with open(log_path, "w") as f:
+                pass
 
     return datetime_str
 
@@ -76,10 +81,11 @@ def start_container(name, image_name="mzinga", gpu_id=None, stats=False, now_tim
     cmd = f"docker run --name {name} -i --rm {gpu_string} -v {log_dir}:/logs -e ENGINE_NAME={name} {image_name}"
 
     if stats:
-        assert datetime is not None, f"datetime {datetime} must not be None"
+        assert now_time is not None, f"datetime {now_time} must not be None"
         assert run is not None, f"run {run} must not be None"
         log_path = f"./logs/{now_time}/{color}/{run}.log"
-        cmd += f"--verbose --log-path {log_path}"
+        cmd += f" --verbose --log-file {log_path}"
+
     logging.debug("running: `%s`", cmd)
     child = sp.Popen(
         shlex.split(cmd),
@@ -218,7 +224,7 @@ def do_play_game(referee, white, black):
 
 
 def play_game(white_image, black_image, white_gpu=None, black_gpu=None, stats=False, now_time=None, run=None):
-    referee = start_container("referee", image_name="nokamute", stats=False)
+    referee = start_container("referee", image_name="nokamute")
     white = start_container("white", white_image, gpu_id=white_gpu, stats=stats, now_time=now_time, run=run, color="white")
     black = start_container("black", black_image, gpu_id=black_gpu, stats=stats, now_time=now_time, run=run, color="black")
 
@@ -266,18 +272,6 @@ def get_db():
 
 def play_tournament(match_list, white_gpu, black_gpu, stats=False, now_time=None, run=None):
     for white, black in match_list:
-        # with get_db() as db:
-        #     res = db.execute(
-        #         "SELECT timestamp FROM games WHERE white = ? AND black = ?",
-        #         [white, black]
-        #     )
-        #
-        #     if res.fetchone() is not None:
-        #         logging.info(
-        #             "match between %s and %s already played",
-        #             white, black
-        #         )
-        #         continue
 
         date = datetime.datetime.now().isoformat()
         logging.info(
@@ -356,8 +350,8 @@ if __name__ == "__main__":
 
     runs = int(args.runs) if args.runs else 1
     stats = args.stats
-    if stats:
-        now_time = create_stats_folder(runs)
+    now_time = create_stats_folder(runs) if stats else None
+    print(stats, now_time)
 
     for i in range(runs):
         print(f"\n\n\n------------------")
