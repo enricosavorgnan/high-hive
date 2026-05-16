@@ -32,6 +32,7 @@ namespace Hive::Learning {
 
     void MCTS::reset() {
         root_ = std::make_unique<MCTSNode>();
+        maxSearchDepth_ = 0;
     }
 
     void MCTS::advanceTree(const Move& selectedMove) {
@@ -175,6 +176,9 @@ namespace Hive::Learning {
                 path.push_back(child);
                 node = child;
             }
+
+            // The depth is exactly the number of nodes in the path minus the root
+            maxSearchDepth_ = std::max(maxSearchDepth_, static_cast<int>(path.size()) - 1);
 
             // Resolve terminal status without an NN call when possible.
             bool resolved = false;
@@ -378,6 +382,26 @@ namespace Hive::Learning {
         std::discrete_distribution<int> dist(probs.begin(), probs.end());
         static std::mt19937 rng(std::random_device{}());
         return dist(rng);
+    }
+
+
+    EngineStats MCTS::getStats() const {
+        EngineStats stats;
+        stats.nodesExplored = root_ ? root_->visitCount : 0;
+        stats.maxDepth = maxSearchDepth_;
+
+        if (root_) {
+            // Extract statistics for every evaluated move from the root
+            for (const auto& child : root_->children) {
+                stats.moveEvaluations.push_back({
+                    child->move,
+                    child->visitCount,
+                    child->qValue(),  // Safely uses the new effectiveVisits internal logic
+                    child->prior      // Correct variable mapping for the new struct
+                });
+            }
+        }
+        return stats;
     }
 
 } // namespace Hive::Learning

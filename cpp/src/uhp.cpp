@@ -265,7 +265,9 @@ namespace Hive {
                 *outStream << "--- Top 5 Moves Evaluated ---\n";
 
                 auto evals = stats.moveEvaluations;
-                size_t topN = std::min(evals.size(), size_t(5));
+                // size_t topN = std::min(evals.size(), size_t(5));
+                size_t topN = std::min(evals.size(), size_t(40));
+
 
                 std::partial_sort(evals.begin(), evals.begin() + topN, evals.end(),
                     [](const MoveEval& a, const MoveEval& b) {

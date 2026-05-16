@@ -78,7 +78,7 @@ namespace Hive::Learning {
             state.applyMove(selectedMove);
 
             // Advance MCTS tree
-            mcts.advanceTree(selectedAction);
+            mcts.advanceTree(selectedMove);
 
             ++moveCount;
         }

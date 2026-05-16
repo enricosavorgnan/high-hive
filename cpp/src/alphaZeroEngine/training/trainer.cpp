@@ -435,8 +435,8 @@ namespace Hive::Learning {
                     state.applyMove(bestMove);
 
                     // Advance both trees (action computed before apply)
-                    mctsA.advanceTree(bestAction);
-                    mctsB.advanceTree(bestAction);
+                    mctsA.advanceTree(bestMove);
+                    mctsB.advanceTree(bestMove);
                 }
 
                 ++moveCount;

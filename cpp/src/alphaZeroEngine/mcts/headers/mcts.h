@@ -3,6 +3,7 @@
 #include <torch/torch.h>
 #include "state.h"
 #include "moves.h"
+#include "engine.h"
 #include "alphaZeroEngine/nn/headers/neural_net.h"
 #include "alphaZeroEngine/nn/headers/state_encoder.h"
 #include "alphaZeroEngine/nn/headers/action_encoder.h"
@@ -114,10 +115,16 @@ namespace Hive::Learning {
         // Reset the tree
         void reset();
 
+        // The public getter for the verbose logging
+        EngineStats getStats() const;
+
     private:
         HiveNet network_;
         std::unique_ptr<MCTSNode> root_;
         std::mt19937 rng_;
+
+        // Track the maximum depth reached in batched searches
+        int maxSearchDepth_ = 0;
 
         // Run a batch of `K` simulations in parallel: descend K times with
         // virtual loss, then evaluate all leaves in a single batched NN

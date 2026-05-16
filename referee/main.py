@@ -1,6 +1,7 @@
 import datetime
 from enum import Enum
 import time
+import datetime
 import subprocess as sp
 import shlex
 import logging
@@ -52,12 +53,33 @@ def send_message(msg, process):
     process.stdin.flush()
 
 
-def start_container(name, image_name="mzinga", gpu_id=None):
+
+def create_stats_folder(runs):
+    now = datetime.datetime.now()
+    datetime_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+    log_dir = os.path.join(os.getcwd(), "logs", datetime_str)
+    os.makedirs(log_dir, exist_ok=True)
+
+    for run in range(runs):
+        open(os.path.join(log_dir, f"black/{run}.log"), "w").close()
+        open(os.path.join(log_dir, f"white/{run}.log"), "w").close()
+
+    return datetime_str
+
+
+def start_container(name, image_name="mzinga", gpu_id=None, stats=False, now_time=None, run=None, color=None):
+    print(f"Starting container {name} with image {image_name} on GPU {gpu_id}")
     gpu_string = f"--gpus {gpu_id}" if gpu_id is not None else ""
     log_dir = os.path.join(os.getcwd(), "logs").replace("\\", "/") # Docker on Windows doesn't like backslashes in volume paths
     os.makedirs(log_dir, exist_ok=True)
 
     cmd = f"docker run --name {name} -i --rm {gpu_string} -v {log_dir}:/logs -e ENGINE_NAME={name} {image_name}"
+
+    if stats:
+        assert datetime is not None, f"datetime {datetime} must not be None"
+        assert run is not None, f"run {run} must not be None"
+        log_path = f"./logs/{now_time}/{color}/{run}.log"
+        cmd += f"--verbose --log-path {log_path}"
     logging.debug("running: `%s`", cmd)
     child = sp.Popen(
         shlex.split(cmd),
@@ -195,10 +217,10 @@ def do_play_game(referee, white, black):
     )
 
 
-def play_game(white_image, black_image, white_gpu=None, black_gpu=None):
-    referee = start_container("referee", image_name="nokamute")
-    white = start_container("white", white_image, gpu_id=white_gpu)
-    black = start_container("black", black_image, gpu_id=black_gpu)
+def play_game(white_image, black_image, white_gpu=None, black_gpu=None, stats=False, now_time=None, run=None):
+    referee = start_container("referee", image_name="nokamute", stats=False)
+    white = start_container("white", white_image, gpu_id=white_gpu, stats=stats, now_time=now_time, run=run, color="white")
+    black = start_container("black", black_image, gpu_id=black_gpu, stats=stats, now_time=now_time, run=run, color="black")
 
     # Get the greetings
     for sub in [referee, white, black]:
@@ -242,7 +264,7 @@ def get_db():
     return db
 
 
-def play_tournament(match_list, white_gpu, black_gpu):
+def play_tournament(match_list, white_gpu, black_gpu, stats=False, now_time=None, run=None):
     for white, black in match_list:
         # with get_db() as db:
         #     res = db.execute(
@@ -265,7 +287,7 @@ def play_tournament(match_list, white_gpu, black_gpu):
             black,
             black_gpu,
         )
-        result = play_game(white, black, white_gpu=white_gpu, black_gpu=black_gpu)
+        result = play_game(white, black, white_gpu=white_gpu, black_gpu=black_gpu, stats=stats, now_time=now_time, run=run)
         with get_db() as db:
             db.execute(
                 """INSERT INTO games
@@ -328,16 +350,18 @@ if __name__ == "__main__":
     parser.add_argument("--black-gpu")
     parser.add_argument("--runs")
     parser.add_argument("--update-images", default="images.yaml")
+    parser.add_argument("--stats", default=False)
 
     args = parser.parse_args()
 
-    # if args.update_images:
-    #     print("Updating Docker images...")
-    #     update_images(args.update_images)
+    runs = int(args.runs) if args.runs else 1
+    stats = args.stats
+    if stats:
+        now_time = create_stats_folder(runs)
 
-    for i in range(int(args.runs) if args.runs else 1):
+    for i in range(runs):
         print(f"\n\n\n------------------")
         print(f"Running game {i+1}/{int(args.runs) if args.runs else 1}")
         print(f"------------------")
         match_list = load_tournament(args.games)
-        play_tournament(match_list, args.white_gpu, args.black_gpu)
+        play_tournament(match_list, args.white_gpu, args.black_gpu, stats=stats, now_time=now_time, run=i)
