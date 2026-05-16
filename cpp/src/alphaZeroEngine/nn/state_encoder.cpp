@@ -3,10 +3,6 @@
 #include "coords.h"
 #include "pieces.h"
 #include "rules.h"
-#include "moves.h"
-#include "generator.h"
-
-#include <cmath>
 
 namespace Hive::Learning {
 
@@ -23,130 +19,102 @@ namespace Hive::Learning {
         return {static_cast<int>(sumQ / n), static_cast<int>(sumR / n)};
     }
 
-    std::pair<int, int> StateEncoder::axialToGrid(Coord coord, int centQ, int centR) {
-        // Center on centroid, then offset to middle of grid
+    std::optional<std::pair<int, int>> StateEncoder::axialToGrid(
+            Coord coord, int centQ, int centR) {
         int gx = (coord.q - centQ) + GRID_SIZE / 2;
         int gy = (coord.r - centR) + GRID_SIZE / 2;
-        return {gx, gy};
+        if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) {
+            return std::nullopt;
+        }
+        return std::make_pair(gx, gy);
     }
 
-    torch::Tensor StateEncoder::encode(const State& state) {
-        auto tensor = torch::zeros({NUM_CHANNELS, GRID_SIZE, GRID_SIZE});
-        auto acc = tensor.accessor<float, 3>();
+    EncodedState StateEncoder::encode(
+            const State& state,
+            const std::unordered_set<Coord, CoordHash>* artPointsCache) {
+        auto planes = torch::zeros({NUM_CHANNELS, GRID_SIZE, GRID_SIZE});
+        auto scalars = torch::zeros({NUM_SCALAR_FEATURES});
+        auto planeAcc = planes.accessor<float, 3>();
+        auto scalarAcc = scalars.accessor<float, 1>();
 
         const Board& board = state.board();
         const Color me = state.toMove();
         const Color opp = rival(me);
 
         auto [centQ, centR] = computeCentroid(state);
-
         const auto& occupied = board.occupiedCoords();
 
-        // Channels 0-15: Piece presence by bug type for each player
-        // Channel 16: Stack height
-        // Channel 17: Color of top piece
+        // Planes 0-15 (per-bug-type presence) + 16 (stack height) + 17 (top color)
         for (const auto& coord : occupied) {
-            auto [gx, gy] = axialToGrid(coord, centQ, centR);
-            if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) continue;
+            auto grid = axialToGrid(coord, centQ, centR);
+            if (!grid) continue;
+            auto [gx, gy] = *grid;
 
             int idx = Board::AxToIndex(coord);
             int height = board.height(coord);
 
-            // Stack height (channel 16), normalized
-            acc[16][gy][gx] = static_cast<float>(height) / 6.0f;
+            planeAcc[16][gy][gx] = static_cast<float>(height) / 6.0f;
 
-            // Process each piece in the stack
             for (int h = 0; h < height; ++h) {
                 const Piece& p = board.cellAt(idx)._data[h];
                 int bugIdx = bugIndex(p.bug);
-
-                if (p.color == me) {
-                    // Channels 0-7: my pieces
-                    acc[bugIdx][gy][gx] = 1.0f;
-                } else {
-                    // Channels 8-15: opponent pieces
-                    acc[8 + bugIdx][gy][gx] = 1.0f;
-                }
+                int channel = (p.color == me) ? bugIdx : (8 + bugIdx);
+                planeAcc[channel][gy][gx] = 1.0f;
             }
 
-            // Color of top piece (channel 17)
             const Piece* top = board.top(coord);
             if (top) {
-                acc[17][gy][gx] = (top->color == me) ? 1.0f : -1.0f;
+                planeAcc[17][gy][gx] = (top->color == me) ? 1.0f : -1.0f;
             }
         }
 
-        // Channel 18: Legal placement targets
-        {
-            auto allMoves = MoveGenerator::generateMoves(state);
-            for (const auto& m : allMoves) {
-                if (m.type == Move::Place) {
-                    auto [gx, gy] = axialToGrid(m.to, centQ, centR);
-                    if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
-                        acc[18][gy][gx] = 1.0f;
-                    }
-                }
-            }
+        // Plane 18: articulation points. Reuses the caller's Tarjan result if
+        // one is supplied so that we don't double-compute alongside the move
+        // generator (which itself runs Tarjan on the same board).
+        const auto& artPoints = artPointsCache
+            ? *artPointsCache
+            : RuleEngine::getArticulationPoints(board);
+        for (const auto& coord : artPoints) {
+            auto grid = axialToGrid(coord, centQ, centR);
+            if (!grid) continue;
+            auto [gx, gy] = *grid;
+            planeAcc[18][gy][gx] = 1.0f;
         }
 
-        // Channels 19-20: Queen adjacency (fraction of occupied neighbors)
-        auto encodeQueenAdj = [&](Color c, int channel) {
-            if (!state.isQueenPlaced(c)) return;
-
-            // Find queen
+        // Scalar 0/1: queen adjacency (fraction of 6 neighbors that are occupied).
+        // The queen's own coord on the board is the answer to "where is the queen",
+        // so we scan the occupied set for each color's queen and count neighbors.
+        auto queenAdj = [&](Color c) -> float {
+            if (!state.isQueenPlaced(c)) return 0.0f;
             for (const auto& coord : occupied) {
                 int idx = Board::AxToIndex(coord);
-                for (int h = 0; h < board.height(coord); ++h) {
+                int height = board.height(coord);
+                for (int h = 0; h < height; ++h) {
                     const Piece& p = board.cellAt(idx)._data[h];
                     if (p.color == c && p.bug == Bug::Queen) {
-                        auto neighbors = coordNeighbors(coord);
                         int occCount = 0;
-                        for (const auto& n : neighbors) {
+                        for (const auto& n : coordNeighbors(coord)) {
                             if (!board.empty(n)) ++occCount;
                         }
-                        // Fill entire plane with the fraction
-                        float frac = static_cast<float>(occCount) / 6.0f;
-                        for (int y = 0; y < GRID_SIZE; ++y)
-                            for (int x = 0; x < GRID_SIZE; ++x)
-                                acc[channel][y][x] = frac;
-                        return;
+                        return static_cast<float>(occCount) / 6.0f;
                     }
                 }
             }
+            return 0.0f;
         };
-        encodeQueenAdj(me, 19);
-        encodeQueenAdj(opp, 20);
+        scalarAcc[0] = queenAdj(me);
+        scalarAcc[1] = queenAdj(opp);
 
-        // Channel 21: Articulation points (pieces that can't be lifted)
+        // Scalar 2: my hand fullness (fraction of pieces still in hand out of 14).
         {
-            auto artPoints = RuleEngine::getArticulationPoints(board);
-            for (const auto& coord : artPoints) {
-                auto [gx, gy] = axialToGrid(coord, centQ, centR);
-                if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
-                    acc[21][gy][gx] = 1.0f;
-                }
-            }
-        }
-
-        // Channel 22: Turn indicator (always 1 since we encode from current player's perspective)
-        for (int y = 0; y < GRID_SIZE; ++y)
-            for (int x = 0; x < GRID_SIZE; ++x)
-                acc[22][y][x] = 1.0f;
-
-        // Channel 23: Hand fullness (fraction of pieces remaining)
-        {
-            int totalPieces = 14; // standard hand total
             int remaining = 0;
             for (int bi = 0; bi < NUM_BUG_TYPES; ++bi) {
                 remaining += state.remaining(me, bugFromIndex(bi));
             }
-            float frac = static_cast<float>(remaining) / static_cast<float>(totalPieces);
-            for (int y = 0; y < GRID_SIZE; ++y)
-                for (int x = 0; x < GRID_SIZE; ++x)
-                    acc[23][y][x] = frac;
+            scalarAcc[2] = static_cast<float>(remaining) / 14.0f;
         }
 
-        return tensor;
+        return EncodedState{std::move(planes), std::move(scalars)};
     }
 
 } // namespace Hive::Learning

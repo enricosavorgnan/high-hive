@@ -15,7 +15,8 @@ namespace Hive::Learning {
 
         // Samples collected during the game (before outcome is known)
         struct PendingSample {
-            torch::Tensor stateTensor;
+            torch::Tensor planes;
+            torch::Tensor scalars;
             torch::Tensor policyTensor;
             Color player; // Who was to move at this position
         };
@@ -62,8 +63,10 @@ namespace Hive::Learning {
             }
 
             // Record sample
+            auto encoded = StateEncoder::encode(state);
             PendingSample sample;
-            sample.stateTensor = StateEncoder::encode(state);
+            sample.planes = std::move(encoded.planes);
+            sample.scalars = std::move(encoded.scalars);
             sample.policyTensor = policyTensor;
             sample.player = currentPlayer;
             pending.push_back(std::move(sample));
@@ -95,7 +98,8 @@ namespace Hive::Learning {
 
         for (auto& p : pending) {
             TrainingSample s;
-            s.state = std::move(p.stateTensor);
+            s.planes = std::move(p.planes);
+            s.scalars = std::move(p.scalars);
             s.policy = std::move(p.policyTensor);
             // Value from perspective of the player who was to move
             s.value = (p.player == Color::White) ? whiteOutcome : -whiteOutcome;

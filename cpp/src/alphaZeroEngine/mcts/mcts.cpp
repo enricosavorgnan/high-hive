@@ -1,5 +1,6 @@
 #include "alphaZeroEngine/mcts/headers/mcts.h"
 #include "generator.h"
+#include "rules.h"
 
 #include <algorithm>
 #include <cmath>
@@ -124,7 +125,8 @@ namespace Hive::Learning {
         // Per-pending-sim record used by simulateBatch.
         struct PendingLeaf {
             std::vector<MCTSNode*> path;   // root → leaf
-            torch::Tensor stateTensor;     // [C, H, W], CPU
+            torch::Tensor planes;          // [C, H, W], CPU
+            torch::Tensor scalars;         // [S], CPU
             torch::Tensor mask;            // [ACTION_SPACE], CPU
             State leafState;               // copy at the leaf (used by expansion)
         };
@@ -197,10 +199,16 @@ namespace Hive::Learning {
             }
 
             // Defer to batched forward pass. Snapshot encode/mask + state copy
-            // now while the board reflects the leaf position.
+            // now while the board reflects the leaf position. Tarjan is shared
+            // with the encoder: legalMask still triggers its own generateMoves,
+            // which we can dedupe in a follow-up if profiling shows it matters.
+            auto artPoints = RuleEngine::getArticulationPoints(state.board());
+            auto encoded = StateEncoder::encode(state, &artPoints);
+
             PendingLeaf leaf;
             leaf.path = std::move(path);
-            leaf.stateTensor = StateEncoder::encode(state);
+            leaf.planes = std::move(encoded.planes);
+            leaf.scalars = std::move(encoded.scalars);
             leaf.mask = ActionEncoder::legalMask(state);
             leaf.leafState = state; // copy at leaf
             rewindPath(state, leaf.path.size());
@@ -211,23 +219,28 @@ namespace Hive::Learning {
 
         // Phase 2: one batched NN forward pass.
         torch::NoGradGuard no_grad;
-        std::vector<torch::Tensor> stateTensors;
+        std::vector<torch::Tensor> planesList;
+        std::vector<torch::Tensor> scalarsList;
         std::vector<torch::Tensor> masks;
-        stateTensors.reserve(pending.size());
+        planesList.reserve(pending.size());
+        scalarsList.reserve(pending.size());
         masks.reserve(pending.size());
         for (auto& p : pending) {
-            stateTensors.push_back(p.stateTensor);
+            planesList.push_back(p.planes);
+            scalarsList.push_back(p.scalars);
             masks.push_back(p.mask);
         }
-        auto batchState = torch::stack(stateTensors);                // [B, C, H, W]
-        auto batchMask = torch::stack(masks);                        // [B, ACTION_SPACE]
+        auto batchPlanes  = torch::stack(planesList);                // [B, C, H, W]
+        auto batchScalars = torch::stack(scalarsList);               // [B, S]
+        auto batchMask    = torch::stack(masks);                     // [B, ACTION_SPACE]
 
         auto device = network_->parameters().front().device();
         auto dtype = network_->parameters().front().dtype();
-        batchState = batchState.to(device, dtype);
-        batchMask = batchMask.to(device, dtype);
+        batchPlanes  = batchPlanes.to(device, dtype);
+        batchScalars = batchScalars.to(device, dtype);
+        batchMask    = batchMask.to(device, dtype);
 
-        auto [batchPolicy, batchValue] = network_->forward_masked(batchState, batchMask);
+        auto [batchPolicy, batchValue] = network_->forward_masked(batchPlanes, batchScalars, batchMask);
         auto policyCpu = batchPolicy.to(torch::kFloat32).cpu();      // [B, ACTION_SPACE]
         auto valueCpu = batchValue.to(torch::kFloat32).cpu();        // [B, 1]
         auto valueAcc = valueCpu.accessor<float, 2>();
@@ -262,7 +275,13 @@ namespace Hive::Learning {
                 // selectChild() returning null, which terminates the descent.
             }
 
-            backpropWithVirtualLoss(pending[i].path, value);
+            // NN value is from the leaf player's perspective ("good for the
+            // side to move at the leaf state"). MCTS Q values are tracked
+            // from the parent's perspective (the player who chose to descend
+            // here), so we negate before backprop. This matches the terminal
+            // path, which already encodes the parent's perspective via
+            // resultForColor(rival(state.toMove())).
+            backpropWithVirtualLoss(pending[i].path, -value);
         }
     }
 
@@ -287,15 +306,19 @@ namespace Hive::Learning {
 
         // Neural network evaluation (device/dtype-aware for FP16 support)
         torch::NoGradGuard no_grad;
-        auto stateTensor = StateEncoder::encode(state).unsqueeze(0); // [1, C, H, W]
-        auto mask = ActionEncoder::legalMask(state).unsqueeze(0);    // [1, ACTION_SPACE]
+        auto artPoints = RuleEngine::getArticulationPoints(state.board());
+        auto encoded = StateEncoder::encode(state, &artPoints);
+        auto planes  = encoded.planes.unsqueeze(0);                  // [1, C, H, W]
+        auto scalars = encoded.scalars.unsqueeze(0);                 // [1, S]
+        auto mask    = ActionEncoder::legalMask(state).unsqueeze(0); // [1, ACTION_SPACE]
 
         auto device = network_->parameters().front().device();
         auto dtype = network_->parameters().front().dtype();
-        stateTensor = stateTensor.to(device, dtype);
-        mask = mask.to(device, dtype);
+        planes  = planes.to(device, dtype);
+        scalars = scalars.to(device, dtype);
+        mask    = mask.to(device, dtype);
 
-        auto [policy, value] = network_->forward_masked(stateTensor, mask);
+        auto [policy, value] = network_->forward_masked(planes, scalars, mask);
 
         float nodeValue = value.to(torch::kFloat32).item<float>();
 

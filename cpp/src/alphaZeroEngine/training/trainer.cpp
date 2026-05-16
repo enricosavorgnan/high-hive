@@ -60,12 +60,13 @@ namespace Hive::Learning {
 
         // Move to same device as model
         auto device = model_->parameters().front().device();
-        auto states = batch.states.to(device);
+        auto planes = batch.planes.to(device);
+        auto scalars = batch.scalars.to(device);
         auto targetPolicies = batch.policies.to(device);
         auto targetValues = batch.values.to(device);
 
         // Forward pass
-        auto [logits, values] = model_->forward(states);
+        auto [logits, values] = model_->forward(planes, scalars);
 
         // Policy loss: cross-entropy with MCTS visit distribution
         auto logSoftmax = torch::log_softmax(logits, /*dim=*/1);
@@ -204,11 +205,12 @@ namespace Hive::Learning {
                 auto batch = buffer.sampleBatch(BATCH_SIZE);
 
                 auto device = model_->parameters().front().device();
-                auto states = batch.states.to(device);
+                auto planes = batch.planes.to(device);
+                auto scalars = batch.scalars.to(device);
                 auto targetPolicies = batch.policies.to(device);
                 auto targetValues = batch.values.to(device);
 
-                auto [logits, values] = model_->forward(states);
+                auto [logits, values] = model_->forward(planes, scalars);
 
                 auto logSoftmax = torch::log_softmax(logits, /*dim=*/1);
                 auto policyLoss = -(targetPolicies * logSoftmax).sum(1).mean();
@@ -246,14 +248,20 @@ namespace Hive::Learning {
     }
 
     void Trainer::pretrainFromDisk(const std::string& batchDir, int epochs, int startEpoch) {
-        // Collect all complete batch file prefixes
+        // Each batch is a 4-tuple of files: _planes.pt, _scalars.pt,
+        // _policies.pt, _values.pt. We anchor discovery on _planes.pt
+        // and require the other three to exist before keeping the prefix.
         std::vector<std::string> batchPrefixes;
         for (const auto& entry : std::filesystem::directory_iterator(batchDir)) {
             auto fname = entry.path().filename().string();
-            if (fname.size() > 10 && fname.substr(fname.size() - 10) == "_states.pt") {
+            constexpr const char* SUFFIX = "_planes.pt";
+            constexpr size_t SUFFIX_LEN = 10;
+            if (fname.size() > SUFFIX_LEN &&
+                fname.substr(fname.size() - SUFFIX_LEN) == SUFFIX) {
                 std::string prefix = entry.path().string();
-                prefix = prefix.substr(0, prefix.size() - 10);
-                if (std::filesystem::exists(prefix + "_policies.pt") &&
+                prefix = prefix.substr(0, prefix.size() - SUFFIX_LEN);
+                if (std::filesystem::exists(prefix + "_scalars.pt") &&
+                    std::filesystem::exists(prefix + "_policies.pt") &&
                     std::filesystem::exists(prefix + "_values.pt")) {
                     batchPrefixes.push_back(prefix);
                 } else {
@@ -310,21 +318,23 @@ namespace Hive::Learning {
 
             for (const auto& prefix : batchPrefixes) {
                 try {
-                    torch::Tensor states, policies, values;
-                    torch::load(states, prefix + "_states.pt");
+                    torch::Tensor planes, scalars, policies, values;
+                    torch::load(planes, prefix + "_planes.pt");
+                    torch::load(scalars, prefix + "_scalars.pt");
                     torch::load(policies, prefix + "_policies.pt");
                     torch::load(values, prefix + "_values.pt");
 
-                    int n = static_cast<int>(states.size(0));
+                    int n = static_cast<int>(planes.size(0));
                     auto perm = torch::randperm(n, torch::kLong);
 
                     for (int offset = 0; offset + PRETRAIN_BATCH <= n; offset += PRETRAIN_BATCH) {
                         auto idx = perm.slice(0, offset, offset + PRETRAIN_BATCH);
-                        auto batchStates = states.index_select(0, idx).to(device);
+                        auto batchPlanes = planes.index_select(0, idx).to(device);
+                        auto batchScalars = scalars.index_select(0, idx).to(device);
                         auto batchPolicies = policies.index_select(0, idx).to(device);
                         auto batchValues = values.index_select(0, idx).to(device);
 
-                        auto [logits, vals] = model_->forward(batchStates);
+                        auto [logits, vals] = model_->forward(batchPlanes, batchScalars);
 
                         auto logSoftmax = torch::log_softmax(logits, 1);
                         auto policyLoss = -(batchPolicies * logSoftmax).sum(1).mean();

@@ -33,20 +33,26 @@ namespace Hive::Learning {
 
     // --- Board encoding ---
     constexpr int GRID_SIZE = 26;           // Spatial dimension of the encoded board
-    constexpr int NUM_CHANNELS = 24;        // Feature planes for state encoding
+    constexpr int NUM_CHANNELS = 19;        // Feature planes for state encoding
+    constexpr int NUM_SCALAR_FEATURES = 3;  // Per-state scalars fed into value head:
+                                            // queen adj me, queen adj opp, hand fullness me
 
-    // --- Action space ---
-    // action = direction(7) x src_piece(28) x ref_piece(28) = 5488
-    constexpr int NUM_DIRECTIONS = 7;       // 6 hex directions + 1 "on top" (beetle/place)
-    constexpr int NUM_PIECE_TYPES = 28;     // 14 per player (Q, B1-2, S1-2, G1-3, A1-3, L, M, P)
-    constexpr int ACTION_SPACE = NUM_DIRECTIONS * NUM_PIECE_TYPES * NUM_PIECE_TYPES; // 5488
+    // --- Action space (spatial policy) ---
+    // Output = (POLICY_PLANES x GRID_SIZE x GRID_SIZE) + 1 pass logit
+    // Planes 0..13:  piece P of side-to-move ends at (y, x) via place / normal move
+    // Planes 14..27: piece P dragged to (y, x) via pillbug / mosquito-as-pillbug
+    // Last index:    pass move
+    constexpr int POLICY_PIECE_PLANES = 14;
+    constexpr int POLICY_PLANES = 2 * POLICY_PIECE_PLANES; // 28: normal + drag
+    constexpr int ACTION_SPACE = POLICY_PLANES * GRID_SIZE * GRID_SIZE + 1; // 18929
+    constexpr int PASS_ACTION_INDEX = ACTION_SPACE - 1;    // 18928
+    constexpr int DRAG_PLANE_OFFSET = POLICY_PIECE_PLANES; // 14
 
     // --- Neural network architecture ---
-    constexpr int NUM_FILTERS = 256;        // Channels in residual blocks
-    constexpr int NUM_RESIDUAL_BLOCKS = 19; // Number of residual blocks
-    constexpr int POLICY_CHANNELS = 2;      // Channels in policy head conv
+    constexpr int NUM_FILTERS = 128;        // Channels in residual blocks
+    constexpr int NUM_RESIDUAL_BLOCKS = 10; // Number of residual blocks
     constexpr int VALUE_CHANNELS = 1;       // Channels in value head conv
-    constexpr int VALUE_HIDDEN = 256;       // Hidden layer size in value head
+    constexpr int VALUE_HIDDEN = 128;       // Hidden layer size in value head
 
     // --- MCTS ---
     constexpr int MCTS_SIMS = 800;          // Number of MCTS simulations per move

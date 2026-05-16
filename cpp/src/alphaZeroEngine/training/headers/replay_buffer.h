@@ -14,13 +14,15 @@
 namespace Hive::Learning {
 
     struct TrainingSample {
-        torch::Tensor state;    // [NUM_CHANNELS, GRID_SIZE, GRID_SIZE]
+        torch::Tensor planes;   // [NUM_CHANNELS, GRID_SIZE, GRID_SIZE]
+        torch::Tensor scalars;  // [NUM_SCALAR_FEATURES]
         torch::Tensor policy;   // [ACTION_SPACE] - MCTS visit distribution
         float value;            // Game outcome from this position (+1/-1/0)
     };
 
     struct TrainingBatch {
-        torch::Tensor states;   // [B, NUM_CHANNELS, GRID_SIZE, GRID_SIZE]
+        torch::Tensor planes;   // [B, NUM_CHANNELS, GRID_SIZE, GRID_SIZE]
+        torch::Tensor scalars;  // [B, NUM_SCALAR_FEATURES]
         torch::Tensor policies; // [B, ACTION_SPACE]
         torch::Tensor values;   // [B, 1]
     };

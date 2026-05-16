@@ -4,6 +4,15 @@ project(uhp_cpp LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Default to Release if no build type specified. Single-config generators
+# otherwise leave CMAKE_BUILD_TYPE empty and compile without optimization,
+# which silently produces a ~3-5x slower binary.
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+add_compile_options($<$<CONFIG:Release>:-O3>)
+add_compile_options($<$<CONFIG:Release>:-march=native>)
+
 # --- Core engine library ---
 add_library(hive_core STATIC
         src/board.cpp
@@ -77,6 +86,17 @@ target_include_directories(hive_train PRIVATE
 add_executable(hive_pretrain pretrain_main.cpp)
 target_link_libraries(hive_pretrain PRIVATE hive_learning)
 target_include_directories(hive_pretrain PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/headers
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/alphaZeroEngine
+)
+
+# End-to-end smoke test of the network + MCTS path. Useful when changing
+# architecture: builds a random-init model, exercises encoder/forward/MCTS
+# and reports nodes-per-second on the current machine.
+add_executable(hive_smoke smoke_test.cpp)
+target_link_libraries(hive_smoke PRIVATE hive_learning)
+target_include_directories(hive_smoke PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/src/headers
         ${CMAKE_CURRENT_SOURCE_DIR}/src/alphaZeroEngine

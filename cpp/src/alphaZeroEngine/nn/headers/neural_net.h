@@ -3,20 +3,29 @@
 #include <torch/torch.h>
 #include "alphaZeroEngine/config/headers/config.h"
 
-// HIVENET - ResNet-style CNN for Hive
+// HIVENET - ResNet-style CNN for Hive with spatial policy head
 //
-// Architecture:
-//   Input [B, 24, 26, 26]
-//   → Conv3x3(24→256) → BN → ReLU
-//   → ResidualBlock × 19
-//   → Policy Head: Conv1x1(256→2) → BN → ReLU → Flatten → FC(2*26*26 → 5488)
-//   → Value Head:  Conv1x1(256→1) → BN → ReLU → Flatten → FC(676→256) → ReLU → FC(256→1) → Tanh
+// Inputs:
+//   planes  [B, NUM_CHANNELS, GRID_SIZE, GRID_SIZE]  - spatial features
+//   scalars [B, NUM_SCALAR_FEATURES]                 - global features
 //
-// Total: ~15-25M parameters
+// Body:
+//   Conv3x3(NUM_CHANNELS → NUM_FILTERS) → BN → ReLU
+//   → ResidualBlock × NUM_RESIDUAL_BLOCKS
+//
+// Policy head (spatial + pass):
+//   Conv1x1(NUM_FILTERS → POLICY_PLANES) on trunk          → [B, 28, H, W]
+//   GlobalAvgPool(trunk) → Linear(NUM_FILTERS → 1)         → [B, 1]    (pass logit)
+//   concat(flatten(spatial), pass) → policy logits         → [B, ACTION_SPACE]
+//
+// Value head:
+//   Conv1x1(NUM_FILTERS → VALUE_CHANNELS) → BN → ReLU → flatten
+//   concat(flat, scalars) → Linear → ReLU → Linear → tanh   → [B, 1]
+//
+// forward_masked applies the legal-move mask before softmax.
 
 namespace Hive::Learning {
 
-    // Residual Block: Conv3x3 → BN → ReLU → Conv3x3 → BN → (+skip) → ReLU
     struct ResidualBlockImpl : torch::nn::Module {
         torch::nn::Conv2d conv1{nullptr};
         torch::nn::BatchNorm2d bn1{nullptr};
@@ -42,89 +51,92 @@ namespace Hive::Learning {
     };
     TORCH_MODULE(ResidualBlock);
 
-    // HiveNet: full network with policy and value heads
     struct HiveNetImpl : torch::nn::Module {
-        // Initial convolution
         torch::nn::Conv2d inputConv{nullptr};
         torch::nn::BatchNorm2d inputBn{nullptr};
 
-        // Residual tower
         std::vector<ResidualBlock> resBlocks;
 
-        // Policy head
+        // Policy head: spatial conv + pass logit head
         torch::nn::Conv2d policyConv{nullptr};
-        torch::nn::BatchNorm2d policyBn{nullptr};
-        torch::nn::Linear policyFc{nullptr};
+        torch::nn::Linear passFc{nullptr};
 
-        // Value head
+        // Value head: conv to scalar plane + concat with scalar features
         torch::nn::Conv2d valueConv{nullptr};
         torch::nn::BatchNorm2d valueBn{nullptr};
         torch::nn::Linear valueFc1{nullptr};
         torch::nn::Linear valueFc2{nullptr};
 
         HiveNetImpl() {
-            // Input convolution: 24 → 256 channels
             inputConv = register_module("input_conv",
                 torch::nn::Conv2d(torch::nn::Conv2dOptions(NUM_CHANNELS, NUM_FILTERS, 3).padding(1)));
             inputBn = register_module("input_bn", torch::nn::BatchNorm2d(NUM_FILTERS));
 
-            // Residual tower
             for (int i = 0; i < NUM_RESIDUAL_BLOCKS; ++i) {
                 auto block = ResidualBlock(NUM_FILTERS);
                 resBlocks.push_back(register_module("res_block_" + std::to_string(i), block));
             }
 
-            // Policy head
+            // Spatial policy: 1x1 conv produces POLICY_PLANES planes,
+            // flattened into (POLICY_PLANES * GRID_SIZE * GRID_SIZE) logits.
             policyConv = register_module("policy_conv",
-                torch::nn::Conv2d(torch::nn::Conv2dOptions(NUM_FILTERS, POLICY_CHANNELS, 1)));
-            policyBn = register_module("policy_bn", torch::nn::BatchNorm2d(POLICY_CHANNELS));
-            policyFc = register_module("policy_fc",
-                torch::nn::Linear(POLICY_CHANNELS * GRID_SIZE * GRID_SIZE, ACTION_SPACE));
+                torch::nn::Conv2d(torch::nn::Conv2dOptions(NUM_FILTERS, POLICY_PLANES, 1)));
 
-            // Value head
+            // Pass logit: average-pool the trunk to a NUM_FILTERS-vector,
+            // then a tiny FC to a single scalar logit appended to the policy.
+            passFc = register_module("pass_fc",
+                torch::nn::Linear(NUM_FILTERS, 1));
+
+            // Value head: same conv-then-flatten structure as before, with
+            // scalar features concatenated before the first FC.
             valueConv = register_module("value_conv",
                 torch::nn::Conv2d(torch::nn::Conv2dOptions(NUM_FILTERS, VALUE_CHANNELS, 1)));
             valueBn = register_module("value_bn", torch::nn::BatchNorm2d(VALUE_CHANNELS));
             valueFc1 = register_module("value_fc1",
-                torch::nn::Linear(VALUE_CHANNELS * GRID_SIZE * GRID_SIZE, VALUE_HIDDEN));
+                torch::nn::Linear(VALUE_CHANNELS * GRID_SIZE * GRID_SIZE + NUM_SCALAR_FEATURES,
+                                  VALUE_HIDDEN));
             valueFc2 = register_module("value_fc2",
                 torch::nn::Linear(VALUE_HIDDEN, 1));
         }
 
-        // Forward pass: returns {policy_logits [B, ACTION_SPACE], value [B, 1]}
-        std::pair<torch::Tensor, torch::Tensor> forward(torch::Tensor x) {
-            // Input convolution
-            x = torch::relu(inputBn(inputConv(x)));
-
-            // Residual tower
+        // Forward: returns {policy_logits [B, ACTION_SPACE], value [B, 1]}
+        std::pair<torch::Tensor, torch::Tensor> forward(
+                torch::Tensor planes, torch::Tensor scalars) {
+            auto x = torch::relu(inputBn(inputConv(planes)));
             for (auto& block : resBlocks) {
                 x = block->forward(x);
             }
+            // x: [B, NUM_FILTERS, GRID_SIZE, GRID_SIZE]
 
-            // Policy head
-            auto p = torch::relu(policyBn(policyConv(x)));
-            p = p.view({p.size(0), -1}); // flatten
-            p = policyFc(p);             // logits
+            // Spatial policy logits
+            auto spatial = policyConv(x);                            // [B, POLICY_PLANES, H, W]
+            spatial = spatial.view({spatial.size(0), -1});            // [B, POLICY_PLANES * H * W]
 
-            // Value head
-            auto v = torch::relu(valueBn(valueConv(x)));
-            v = v.view({v.size(0), -1}); // flatten
+            // Pass logit from globally-pooled trunk features
+            auto pooled = torch::adaptive_avg_pool2d(x, {1, 1})
+                              .view({x.size(0), -1});                 // [B, NUM_FILTERS]
+            auto passLogit = passFc(pooled);                          // [B, 1]
+
+            auto policyLogits = torch::cat({spatial, passLogit}, /*dim=*/1); // [B, ACTION_SPACE]
+
+            // Value head with scalar features concatenated
+            auto v = torch::relu(valueBn(valueConv(x)));              // [B, VC, H, W]
+            v = v.view({v.size(0), -1});                              // [B, VC*H*W]
+            v = torch::cat({v, scalars}, /*dim=*/1);                  // [B, VC*H*W + S]
             v = torch::relu(valueFc1(v));
             v = torch::tanh(valueFc2(v));
 
-            return {p, v};
+            return {policyLogits, v};
         }
 
-        // Forward with legal move masking: applies mask, returns softmax policy + value
-        std::pair<torch::Tensor, torch::Tensor> forward_masked(torch::Tensor x, torch::Tensor mask) {
-            auto [logits, value] = forward(x);
-
-            // Apply mask: set illegal actions to -infinity
-            auto masked_logits = logits + (1.0f - mask) * (-1e9f);
-
-            // Softmax over legal actions
-            auto policy = torch::softmax(masked_logits, /*dim=*/1);
-
+        // Forward with legal-move masking: returns softmax-normalized policy + value
+        std::pair<torch::Tensor, torch::Tensor> forward_masked(
+                torch::Tensor planes,
+                torch::Tensor scalars,
+                torch::Tensor mask) {
+            auto [logits, value] = forward(planes, scalars);
+            auto masked = logits + (1.0f - mask) * (-1e9f);
+            auto policy = torch::softmax(masked, /*dim=*/1);
             return {policy, value};
         }
     };

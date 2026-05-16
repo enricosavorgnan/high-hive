@@ -375,7 +375,8 @@ namespace Hive::Learning {
         // Pass 1: replay all moves, validate legality, record (state, policy) pairs.
         // If no result string, we'll infer the outcome from the final board state.
         struct PendingSample {
-            torch::Tensor state;
+            torch::Tensor planes;
+            torch::Tensor scalars;
             torch::Tensor policy;
             Color toMove;
         };
@@ -391,9 +392,12 @@ namespace Hive::Learning {
                 Move passMove;
                 passMove.type = Move::Pass;
 
+                auto encoded = StateEncoder::encode(state);
                 PendingSample ps;
-                ps.state = StateEncoder::encode(state);
+                ps.planes = std::move(encoded.planes);
+                ps.scalars = std::move(encoded.scalars);
                 ps.policy = torch::zeros({ACTION_SPACE});
+                ps.policy[PASS_ACTION_INDEX] = 1.0f;
                 ps.toMove = state.toMove();
                 pending.push_back(std::move(ps));
 
@@ -438,8 +442,10 @@ namespace Hive::Learning {
             }
 
             // Record pending sample
+            auto encoded = StateEncoder::encode(state);
             PendingSample ps;
-            ps.state = StateEncoder::encode(state);
+            ps.planes = std::move(encoded.planes);
+            ps.scalars = std::move(encoded.scalars);
             ps.policy = torch::zeros({ACTION_SPACE});
             int action = ActionEncoder::moveToAction(move, state);
             if (action >= 0 && action < ACTION_SPACE) {
@@ -468,7 +474,8 @@ namespace Hive::Learning {
         samples.reserve(pending.size());
         for (auto& ps : pending) {
             TrainingSample sample;
-            sample.state = std::move(ps.state);
+            sample.planes = std::move(ps.planes);
+            sample.scalars = std::move(ps.scalars);
             sample.policy = std::move(ps.policy);
             sample.value = (ps.toMove == Color::White) ? whiteOutcome : -whiteOutcome;
             samples.push_back(std::move(sample));
@@ -477,23 +484,27 @@ namespace Hive::Learning {
         return samples;
     }
 
-    // Flush accumulated samples to a .pt file on disk, then clear the buffer.
+    // Flush accumulated samples to a quartet of .pt files on disk, then clear
+    // the buffer. The trainer's pretrainFromDisk reads the same quartet.
     static void flushBatch(std::vector<TrainingSample>& pending, const std::string& outputDir, int batchIdx) {
         if (pending.empty()) return;
 
         int n = static_cast<int>(pending.size());
-        auto states = torch::zeros({n, NUM_CHANNELS, GRID_SIZE, GRID_SIZE});
+        auto planes = torch::zeros({n, NUM_CHANNELS, GRID_SIZE, GRID_SIZE});
+        auto scalars = torch::zeros({n, NUM_SCALAR_FEATURES});
         auto policies = torch::zeros({n, ACTION_SPACE});
         auto values = torch::zeros({n, 1});
 
         for (int i = 0; i < n; ++i) {
-            states[i] = pending[i].state;
+            planes[i] = pending[i].planes;
+            scalars[i] = pending[i].scalars;
             policies[i] = pending[i].policy;
             values[i][0] = pending[i].value;
         }
 
         std::string prefix = outputDir + "/batch_" + std::to_string(batchIdx);
-        torch::save(states, prefix + "_states.pt");
+        torch::save(planes, prefix + "_planes.pt");
+        torch::save(scalars, prefix + "_scalars.pt");
         torch::save(policies, prefix + "_policies.pt");
         torch::save(values, prefix + "_values.pt");
 
@@ -511,13 +522,12 @@ namespace Hive::Learning {
         const int FLUSH_THRESHOLD = 10000; // samples per batch file
         std::vector<TrainingSample> pending;
 
-        // Auto-detect next batch index from existing files in outputDir
+        // Auto-detect next batch index from existing _planes.pt files in outputDir
         int batchIdx = 0;
         for (const auto& f : std::filesystem::directory_iterator(outputDir)) {
             auto fname = f.path().filename().string();
-            if (fname.find("batch_") == 0 && fname.find("_states.pt") != std::string::npos) {
-                // Extract batch number from "batch_NNN_states.pt"
-                auto numStr = fname.substr(6, fname.find("_states.pt") - 6);
+            if (fname.find("batch_") == 0 && fname.find("_planes.pt") != std::string::npos) {
+                auto numStr = fname.substr(6, fname.find("_planes.pt") - 6);
                 int idx = std::stoi(numStr) + 1;
                 if (idx > batchIdx) batchIdx = idx;
             }

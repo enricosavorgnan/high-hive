@@ -3,49 +3,54 @@
 #include <torch/torch.h>
 #include "state.h"
 #include "moves.h"
+#include "pieces.h"
 #include "alphaZeroEngine/config/headers/config.h"
 
-// ACTION ENCODER
+// ACTION ENCODER (spatial policy)
 // Maps between Move objects and action indices in [0, ACTION_SPACE).
 //
-// Encoding scheme:
-//   action = direction_idx * NUM_PIECE_TYPES * NUM_PIECE_TYPES
-//            + src_piece_idx * NUM_PIECE_TYPES
-//            + ref_piece_idx
+// Action layout:
+//   index = plane * GRID_SIZE * GRID_SIZE + gy * GRID_SIZE + gx
+// where:
+//   plane 0..13   = piece P of side-to-move ends at (gy, gx) via Place or PieceMove
+//   plane 14..27  = piece P dragged to (gy, gx) via pillbug / mosquito-as-pillbug
+//                   (the dragged piece may be any color; plane index ignores color)
+//   index == ACTION_SPACE - 1  = Pass move
 //
-// direction_idx (7): 0-5 = hex directions, 6 = "on top" (beetle climb / placement)
-// src_piece_idx (28): 0-13 = white pieces, 14-27 = black pieces
-//   Order per color: Q, B1, B2, S1, S2, G1, G2, G3, A1, A2, A3, L1, M1, P1
-// ref_piece_idx (28): same ordering, represents the reference/neighbor piece
-//   For placements: the piece adjacent to the destination
-//   For moves: the piece at or adjacent to the destination
-//   Pass move uses a special index
+// Plane index for a piece is determined by bug type + id only, not color:
+//   Queen=0, Beetle1=1, Beetle2=2, Spider1=3, Spider2=4,
+//   Grasshopper{1,2,3}=5..7, Ant{1,2,3}=8..10, Ladybug=11, Mosquito=12, Pillbug=13
+//
+// Centroid centering is shared with StateEncoder: the same hive centroid is
+// used to map a Move's destination axial coord to a grid cell, so input and
+// output live in the same frame.
 
 namespace Hive::Learning {
 
     class ActionEncoder {
     public:
-        // Convert a Move to an action index
+        // Map a Move to its action index. Out-of-grid destinations (extremely
+        // spread positions where the centered grid can't hold the destination)
+        // currently fall back to PASS_ACTION_INDEX — this is a known minor
+        // ambiguity to monitor during pretraining.
         static int moveToAction(const Move& move, const State& state);
 
-        // Convert an action index back to a Move
+        // Brute-force decode: scan the legal moves for the one matching the
+        // given action index. O(legal moves) ~ 100, called only on debug paths.
         static Move actionToMove(int action, const State& state);
 
-        // Generate a legal move mask tensor [ACTION_SPACE] (1.0 = legal, 0.0 = illegal)
+        // Build the legal-move mask of shape [ACTION_SPACE]: 1.0 for each
+        // legal move's encoded action, 0.0 elsewhere. If no moves are legal,
+        // PASS_ACTION_INDEX is marked legal instead.
         static torch::Tensor legalMask(const State& state);
 
-        // Convert a piece to its index (0-27)
-        static int pieceToIndex(const Piece& piece);
+        // Plane index (0-13) for a piece's identity, color-agnostic.
+        static int pieceToPlane(const Piece& piece);
 
-        // Convert an index (0-27) back to a Piece
-        static Piece indexToPiece(int idx);
-
-    private:
-        // Find a reference piece for encoding a move destination
-        static int findRefPieceIndex(const Board& board, Coord dest, Coord exclude);
-
-        // Determine direction index between two coordinates
-        static int directionIndex(Coord from, Coord to, const Board& board);
+        // Convenience: pack (plane, gy, gx) into a flat action index.
+        static inline int encodeAction(int plane, int gy, int gx) {
+            return plane * GRID_SIZE * GRID_SIZE + gy * GRID_SIZE + gx;
+        }
     };
 
 } // namespace Hive::Learning
