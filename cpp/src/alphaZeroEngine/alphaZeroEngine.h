@@ -28,6 +28,23 @@ namespace Hive {
                   if (torch::cuda::is_available()) {
                       network_->to(torch::kCUDA);
                       network_->to(torch::kHalf);
+
+                      // Warm up CUDA: the first forward pass pays for CUDA
+                      // context init and cuDNN kernel autotuning, which adds
+                      // ~1-2 s of latency. Doing it now (at engine construction,
+                      // before any bestmove command) keeps that cost out of the
+                      // 5 s tournament budget.
+                      torch::NoGradGuard ng;
+                      auto opts = torch::TensorOptions()
+                                      .device(torch::kCUDA)
+                                      .dtype(torch::kHalf);
+                      auto planes = torch::zeros(
+                          {1, Learning::NUM_CHANNELS,
+                           Learning::GRID_SIZE, Learning::GRID_SIZE}, opts);
+                      auto scalars = torch::zeros(
+                          {1, Learning::NUM_SCALAR_FEATURES}, opts);
+                      (void)network_->forward(planes, scalars);
+                      torch::cuda::synchronize();
                   }
 
                   mcts_ = std::make_unique<Learning::MCTS>(network_);

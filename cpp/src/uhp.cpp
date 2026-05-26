@@ -2,6 +2,7 @@
 #include <iostream>
 #include <chrono>
 #include <random>
+#include <algorithm>
 
 #include "generator.h"
 
@@ -235,7 +236,12 @@ namespace Hive {
             int hours, minutes, seconds;
             sscanf(time.c_str(), "%d:%d:%d", &hours, &minutes, &seconds);
             int totSeconds = hours * 3600 + minutes * 60 + seconds;
-            engine->setTimeBudget(totSeconds*1000);        // totSecond is in sec, engines in ms
+            // Tournament rule: exceeding the per-move time is an automatic
+            // loss, so we deduct a safety margin from the announced budget
+            // to leave room for the post-search serialization + stdout flush.
+            constexpr int SAFETY_MARGIN_MS = 300;
+            int budgetMs = std::max(100, totSeconds * 1000 - SAFETY_MARGIN_MS);
+            engine->setTimeBudget(budgetMs);
         }
 
         const std::vector<Move> validMoves = MoveGenerator::generateMoves(state);

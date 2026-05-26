@@ -1,0 +1,53 @@
+# Tournament-ready container for AWS g4dn.12xlarge (1x NVIDIA T4 per bot).
+# The tournament orchestrator runs this with --gpus device=... to expose the
+# T4 to the container. AlphaZeroEngine auto-detects CUDA at runtime: with a
+# GPU it moves the network to CUDA+FP16; without one it stays on CPU (slow
+# but still UHP-compliant). For pure CPU pipelines (e.g. the local referee)
+# use the sibling Dockerfile instead.
+#
+# Build:    docker build -f Dockerfile.cuda -t high-hive-cuda .
+# Run:      docker run --rm -i --gpus all high-hive-cuda
+#
+# IMPORTANT: src/alphaZeroEngine/checkpoints/pretrained_best.pt must be a
+# checkpoint trained against the current network architecture
+# (NUM_RESIDUAL_BLOCKS=10, NUM_FILTERS=128, NUM_CHANNELS=19, etc.).
+# A checkpoint from a different shape will fail to load at startup.
+
+FROM nvidia/cuda:12.4.0-cudnn-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    python3 \
+    python3-pip \
+    libgfortran5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# CUDA-flavor torch wheel: bundles cuBLAS, cuDNN, NCCL, etc. so the C++
+# binary can link against them via the python torch.libs directory.
+RUN pip3 install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cu124 \
+    torch==2.5.1
+
+WORKDIR /app
+COPY . /app
+
+# Build with CUDA support (default — no -DUSE_CUDA=OFF). Using -j4 to keep
+# peak memory in check; LibTorch + -O3 with too much parallelism OOMs on
+# smaller build machines.
+WORKDIR /app/cpp
+RUN rm -rf build && mkdir -p build && cd build \
+    && cmake .. \
+        -DCMAKE_PREFIX_PATH="$(python3 -c 'import torch; print(torch.utils.cmake_prefix_path)')" \
+        -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,/usr/local/lib/python3.10/dist-packages/torch.libs -Wl,-rpath-link,/usr/local/lib/python3.10/dist-packages/torch/lib" \
+    && make uhp -j4
+
+WORKDIR /app/cpp/build
+
+# Persistent UHP server reading from stdin. The orchestrator will issue
+# `bestmove time 00:00:05` per turn; setTimeBudget shaves a safety margin
+# off that so MCTS exits comfortably before the hard 5s tournament limit.
+ENTRYPOINT ["./uhp"]
+CMD ["--engine", "AlphaZeroEngine", "--model-path", "alphaZeroEngine/checkpoints/pretrained_best.pt", "--time-budget", "4700"]
