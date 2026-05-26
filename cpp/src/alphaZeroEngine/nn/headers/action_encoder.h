@@ -44,6 +44,14 @@ namespace Hive::Learning {
         // PASS_ACTION_INDEX is marked legal instead.
         static torch::Tensor legalMask(const State& state);
 
+        // Same as legalMask but skips the internal generateMoves call by
+        // accepting a pre-computed legal-moves vector. Used by MCTS to share
+        // the move-generation result with the expansion phase that needs the
+        // same vector — one generateMoves call per leaf instead of two.
+        static torch::Tensor legalMaskFromMoves(
+            const std::vector<Move>& legalMoves,
+            const State& state);
+
         // Plane index (0-13) for a piece's identity, color-agnostic.
         static int pieceToPlane(const Piece& piece);
 

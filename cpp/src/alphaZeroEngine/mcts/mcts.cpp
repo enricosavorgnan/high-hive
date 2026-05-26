@@ -128,6 +128,9 @@ namespace Hive::Learning {
             torch::Tensor planes;          // [C, H, W], CPU
             torch::Tensor scalars;         // [S], CPU
             torch::Tensor mask;            // [ACTION_SPACE], CPU
+            std::vector<Move> legalMoves;  // cached for the expansion phase so
+                                           // generateMoves is called once per
+                                           // leaf instead of twice
             State leafState;               // copy at the leaf (used by expansion)
         };
 
@@ -200,16 +203,18 @@ namespace Hive::Learning {
 
             // Defer to batched forward pass. Snapshot encode/mask + state copy
             // now while the board reflects the leaf position. Tarjan is shared
-            // with the encoder: legalMask still triggers its own generateMoves,
-            // which we can dedupe in a follow-up if profiling shows it matters.
+            // with the encoder, and generateMoves is run once and reused for
+            // both the legal-mask and the Phase 3 child expansion below.
             auto artPoints = RuleEngine::getArticulationPoints(state.board());
+            auto legalMoves = MoveGenerator::generateMoves(state);
             auto encoded = StateEncoder::encode(state, &artPoints);
 
             PendingLeaf leaf;
             leaf.path = std::move(path);
             leaf.planes = std::move(encoded.planes);
             leaf.scalars = std::move(encoded.scalars);
-            leaf.mask = ActionEncoder::legalMask(state);
+            leaf.mask = ActionEncoder::legalMaskFromMoves(legalMoves, state);
+            leaf.legalMoves = std::move(legalMoves);
             leaf.leafState = state; // copy at leaf
             rewindPath(state, leaf.path.size());
             pending.push_back(std::move(leaf));
@@ -254,7 +259,9 @@ namespace Hive::Learning {
             if (!leafNode->isExpanded) {
                 leafNode->isExpanded = true;
 
-                auto legalMoves = MoveGenerator::generateMoves(pending[i].leafState);
+                // Reuse the legal-moves vector that Phase 1 computed for this
+                // same leaf state, instead of regenerating it from scratch.
+                const auto& legalMoves = pending[i].legalMoves;
                 if (!legalMoves.empty()) {
                     auto policySlice = policyCpu[i];                 // [ACTION_SPACE]
                     auto policyAcc = policySlice.accessor<float, 1>();

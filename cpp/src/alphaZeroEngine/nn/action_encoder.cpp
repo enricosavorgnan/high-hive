@@ -55,10 +55,15 @@ namespace Hive::Learning {
     }
 
     torch::Tensor ActionEncoder::legalMask(const State& state) {
+        return legalMaskFromMoves(MoveGenerator::generateMoves(state), state);
+    }
+
+    torch::Tensor ActionEncoder::legalMaskFromMoves(
+            const std::vector<Move>& moves,
+            const State& state) {
         auto mask = torch::zeros({ACTION_SPACE});
         auto acc = mask.accessor<float, 1>();
 
-        auto moves = MoveGenerator::generateMoves(state);
         for (const auto& move : moves) {
             int action = moveToAction(move, state);
             if (action >= 0 && action < ACTION_SPACE) {
