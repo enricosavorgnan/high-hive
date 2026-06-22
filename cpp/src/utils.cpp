@@ -332,15 +332,21 @@ namespace Hive
     }
 
     Piece StringToPiece(const std::string_view str) {
-        // Safety Check
-        if (str.empty() || (str[0] != 'w' && str[0] != 'b')) {
+        if (str.empty()) {
+            throw std::invalid_argument("Empty piece string");
+        }
+        // SGF dumps from boardspace mix cases freely ("wQ", "WQ", "wq"). The
+        // canonical UHP form is lowercase color + uppercase bug + optional
+        // digit, so normalise here rather than at every call site.
+        char c0 = static_cast<char>(std::tolower(static_cast<unsigned char>(str[0])));
+        if (c0 != 'w' && c0 != 'b') {
             throw std::invalid_argument("Invalid piece string format: " + std::string(str));
         }
-
-        const Color color = (str[0] == 'w') ? Color::White : Color::Black;
+        const Color color = (c0 == 'w') ? Color::White : Color::Black;
         Bug bug = Bug::Ant;
         if (str.size() > 1) {
-            switch(str[1]) {
+            char c1 = static_cast<char>(std::toupper(static_cast<unsigned char>(str[1])));
+            switch(c1) {
                 case 'Q': bug = Bug::Queen; break;
                 case 'S': bug = Bug::Spider; break;
                 case 'B': bug = Bug::Beetle; break;
@@ -352,7 +358,12 @@ namespace Hive
                 default: ;
             }
         }
-        uint8_t id = (str.size() > 2) ? str[2]-'0' : 0;
+        // UHP omits the id digit for single-instance pieces (Q/L/M/P) and for
+        // the canonical "first" of a multi-instance type (wB == wB1). State
+        // stores those with id=1 in INITIAL_*_HAND, so default to 1 instead
+        // of 0. The old default of 0 made findPieceOnBoard silently fail to
+        // find an already-placed queen referenced as "wQ".
+        uint8_t id = (str.size() > 2) ? static_cast<uint8_t>(str[2] - '0') : 1;
         return {color, bug, id};
     }
 
@@ -406,13 +417,18 @@ namespace Hive
     // Helper to find a piece's coordinate on the board by scanning occupied cells
     bool findPieceOnBoard(const Board& board, const Piece& targetPiece, Coord& outCoord) {
         for (Coord c : board.occupiedCoords()) {
-            // We only need to check the top of the stack for movement origins,
-            // but for references, UHP allows referencing covered pieces.
-            // Assuming the board's CellStack has a way to iterate or we just check the top for now.
-            const Piece* topPiece = board.top(c);
-            if (topPiece && topPiece->color == targetPiece.color && topPiece->bug == targetPiece.bug && topPiece->id == targetPiece.id) {
-                outCoord = c;
-                return true;
+            // UHP allows referencing pieces that are covered by a beetle or
+            // mosquito, not only the top of the stack. Scan every level of
+            // each occupied cell so that, e.g., a queen with a beetle on top
+            // is still findable when the SGF says "wA1 wQ-".
+            int idx = Board::AxToIndex(c);
+            int height = board.height(c);
+            for (int h = 0; h < height; ++h) {
+                const Piece& p = board.cellAt(idx)._data[h];
+                if (p.color == targetPiece.color && p.bug == targetPiece.bug && p.id == targetPiece.id) {
+                    outCoord = c;
+                    return true;
+                }
             }
         }
         return false;
@@ -445,12 +461,26 @@ namespace Hive
         Coord offset{0, 0};
         std::string refPieceStr;
 
-        // Map UHP relative position characters to your axial coordinate logic
+        // BoardSpace SGF direction notation, empirically verified by dumping
+        // MoveGenerator's legal placements for the second move of real games
+        // and seeing which axial offset lands the new piece on a legal cell.
+        //
+        //   /X  (prefix)  → new piece at axial (-1, 1)  ["SW" in DIRECTIONS]
+        //   X/  (suffix)  → new piece at axial (1, -1)  ["NE"]
+        //   \X  (prefix)  → new piece at axial (0, -1)  ["NW"]
+        //   X\  (suffix)  → new piece at axial (0, 1)   ["SE"]
+        //   -X  (prefix)  → new piece at axial (-1, 0)  [W]
+        //   X-  (suffix)  → new piece at axial (1, 0)   [E]
+        //
+        // The previous mapping had /-prefix and /-suffix swapped (it followed
+        // the visual /-slash literally, prefix=NE and suffix=SW). BoardSpace
+        // uses the opposite convention: the slash characters point AWAY from
+        // the side where the new piece is placed.
         if (refStr.front() == '-') { offset = {-1, 0}; refPieceStr = refStr.substr(1); }
-        else if (refStr.front() == '/') { offset = {1, -1}; refPieceStr = refStr.substr(1); }
+        else if (refStr.front() == '/') { offset = {-1, 1}; refPieceStr = refStr.substr(1); }
         else if (refStr.front() == '\\') { offset = {0, -1}; refPieceStr = refStr.substr(1); }
         else if (refStr.back() == '-') { offset = {1, 0}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
-        else if (refStr.back() == '/') { offset = {-1, 1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
+        else if (refStr.back() == '/') { offset = {1, -1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
         else if (refStr.back() == '\\') { offset = {0, 1}; refPieceStr = refStr.substr(0, refStr.size() - 1); }
         else {
             // No prefix/suffix means placing directly ON TOP of the reference piece (Beetle/Mosquito)
