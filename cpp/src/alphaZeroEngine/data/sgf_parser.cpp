@@ -368,12 +368,33 @@ namespace Hive::Learning {
 
         if (game.moves.empty()) return samples;
 
-        // Parse game outcome from result string
-        float whiteOutcome = parseResult(game.result);
-        bool needInferResult = (whiteOutcome == 0.0f && game.result.empty());
+        // Parse game outcome from result string. We track two things:
+        //   - whiteOutcome:  the value label to attach to the samples
+        //   - outcomeKnown:  whether that label is a real win/loss signal we
+        //                    want the value head to fit. Draws and aborted
+        //                    games get outcomeKnown=false so their samples
+        //                    still feed the policy head (we know which move
+        //                    was played) but contribute zero gradient to the
+        //                    value loss via the value_weight mask.
+        float whiteOutcome = 0.0f;
+        bool outcomeKnown = false;
+        if (!game.result.empty()) {
+            std::string lower = game.result;
+            std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+            if (lower.find("white") != std::string::npos || lower.find("w+") != std::string::npos) {
+                whiteOutcome = 1.0f;
+                outcomeKnown = true;
+            } else if (lower.find("black") != std::string::npos || lower.find("b+") != std::string::npos) {
+                whiteOutcome = -1.0f;
+                outcomeKnown = true;
+            }
+            // Note: draws and unrecognised RE strings leave outcomeKnown=false.
+            // We deliberately do not let draws train the value head, per the
+            // current dataset-quality preference.
+        }
+        bool tryInferFromBoard = !outcomeKnown;
 
         // Pass 1: replay all moves, validate legality, record (state, policy) pairs.
-        // If no result string, we'll infer the outcome from the final board state.
         struct PendingSample {
             torch::Tensor planes;
             torch::Tensor scalars;
@@ -457,20 +478,26 @@ namespace Hive::Learning {
             state.applyMove(move);
         }
 
-        // If no RE tag, infer result from final board state (queen surrounded)
-        if (needInferResult) {
+        // If we still don't know the outcome, try to read it from the final
+        // board state. A surrounded queen is the only "true" signal here;
+        // anything else (draws, aborted games, incomplete replays) leaves
+        // outcomeKnown=false and the samples will be policy-only.
+        if (tryInferFromBoard) {
             auto gr = state.result();
-            if (gr == GameResult::WhiteWin)
+            if (gr == GameResult::WhiteWin) {
                 whiteOutcome = 1.0f;
-            else if (gr == GameResult::BlackWin)
+                outcomeKnown = true;
+            } else if (gr == GameResult::BlackWin) {
                 whiteOutcome = -1.0f;
-            else if (gr == GameResult::Draw)
-                whiteOutcome = 0.0f;  // draw is valid
-            else
-                return {};  // game didn't end in a decisive result, skip
+                outcomeKnown = true;
+            }
+            // GameResult::Draw and ::None: leave outcomeKnown=false on purpose.
         }
 
-        // Pass 2: assign value labels and build final samples
+        // Pass 2: build final samples. Every replayed move becomes a sample;
+        // the value_weight mask decides whether each sample feeds the value
+        // head or only the policy head.
+        const float value_weight = outcomeKnown ? 1.0f : 0.0f;
         samples.reserve(pending.size());
         for (auto& ps : pending) {
             TrainingSample sample;
@@ -478,14 +505,17 @@ namespace Hive::Learning {
             sample.scalars = std::move(ps.scalars);
             sample.policy = std::move(ps.policy);
             sample.value = (ps.toMove == Color::White) ? whiteOutcome : -whiteOutcome;
+            sample.value_weight = value_weight;
             samples.push_back(std::move(sample));
         }
 
         return samples;
     }
 
-    // Flush accumulated samples to a quartet of .pt files on disk, then clear
-    // the buffer. The trainer's pretrainFromDisk reads the same quartet.
+    // Flush accumulated samples to a quintuple of .pt files on disk, then
+    // clear the buffer. The trainer's pretrainFromDisk reads the same set.
+    // _weights.pt carries the per-sample value-loss mask (1.0 = the value
+    // label is a real signal, 0.0 = mask the value loss for this sample).
     static void flushBatch(std::vector<TrainingSample>& pending, const std::string& outputDir, int batchIdx) {
         if (pending.empty()) return;
 
@@ -494,12 +524,14 @@ namespace Hive::Learning {
         auto scalars = torch::zeros({n, NUM_SCALAR_FEATURES});
         auto policies = torch::zeros({n, ACTION_SPACE});
         auto values = torch::zeros({n, 1});
+        auto value_weights = torch::zeros({n, 1});
 
         for (int i = 0; i < n; ++i) {
             planes[i] = pending[i].planes;
             scalars[i] = pending[i].scalars;
             policies[i] = pending[i].policy;
             values[i][0] = pending[i].value;
+            value_weights[i][0] = pending[i].value_weight;
         }
 
         std::string prefix = outputDir + "/batch_" + std::to_string(batchIdx);
@@ -507,6 +539,7 @@ namespace Hive::Learning {
         torch::save(scalars, prefix + "_scalars.pt");
         torch::save(policies, prefix + "_policies.pt");
         torch::save(values, prefix + "_values.pt");
+        torch::save(value_weights, prefix + "_weights.pt");
 
         pending.clear();
     }
@@ -516,7 +549,10 @@ namespace Hive::Learning {
 
         int totalGames = 0, validGames = 0, totalSamples = 0;
         int noMoves = 0, illegalMove = 0;
-        int resultFromTag = 0, resultInferred = 0, resultUnknown = 0;
+        // Of the games we kept, how many have a real win/loss signal vs how
+        // many feed only the policy head (value loss masked).
+        int gamesValueKnown = 0, gamesValueMasked = 0;
+        int valueKnownSamples = 0, valueMaskedSamples = 0;
         int skipped = 0;
 
         const int FLUSH_THRESHOLD = 10000; // samples per batch file
@@ -554,15 +590,23 @@ namespace Hive::Learning {
                     continue;
                 }
 
-                bool hasResultTag = !gameInfo.result.empty();
-
                 auto samples = processGame(gameInfo);
 
                 if (!samples.empty()) {
                     ++validGames;
-                    if (hasResultTag) ++resultFromTag;
-                    else ++resultInferred;
-                    totalSamples += static_cast<int>(samples.size());
+                    // All samples in a game share the same value_weight
+                    // (set inside processGame), so the first one is enough
+                    // to classify the game.
+                    bool valueKnown = samples.front().value_weight > 0.5f;
+                    int nSamples = static_cast<int>(samples.size());
+                    totalSamples += nSamples;
+                    if (valueKnown) {
+                        ++gamesValueKnown;
+                        valueKnownSamples += nSamples;
+                    } else {
+                        ++gamesValueMasked;
+                        valueMaskedSamples += nSamples;
+                    }
 
                     pending.insert(pending.end(),
                         std::make_move_iterator(samples.begin()),
@@ -574,8 +618,10 @@ namespace Hive::Learning {
                                   << " (" << totalSamples << " samples so far)\n";
                     }
                 } else {
-                    if (!hasResultTag) ++resultUnknown;
-                    else ++illegalMove;
+                    // Empty samples now only happens when the replay fails
+                    // (illegal/unparseable move). No-result games are kept
+                    // with value_weight=0 instead of being discarded.
+                    ++illegalMove;
                 }
 
                 if (totalGames % 500 == 0) {
@@ -599,14 +645,13 @@ namespace Hive::Learning {
                   << "  Total SGF files:    " << totalGames << "\n"
                   << "  Kept (valid):       " << validGames
                   << " (" << keepPct << "%)\n"
-                  << "    - result from RE: " << resultFromTag << "\n"
-                  << "    - result inferred:" << resultInferred
-                  << " (from final board state)\n"
+                  << "    - value known:    " << gamesValueKnown
+                  << " (" << valueKnownSamples << " samples - feed both heads)\n"
+                  << "    - value masked:   " << gamesValueMasked
+                  << " (" << valueMaskedSamples << " samples - policy head only)\n"
                   << "  Discarded:          " << discarded
                   << " (" << discardPct << "%)\n"
                   << "    - no moves:       " << noMoves << "\n"
-                  << "    - no result:      " << resultUnknown
-                  << " (no RE tag + no queen surrounded)\n"
                   << "    - illegal/parse:  " << illegalMove << "\n"
                   << "  Training samples:   " << totalSamples
                   << " (in " << batchIdx << " batch files)\n"

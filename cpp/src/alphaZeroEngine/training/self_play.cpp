@@ -85,12 +85,15 @@ namespace Hive::Learning {
             ++moveCount;
         }
 
-        // Determine game outcome
-        float whiteOutcome = 0.0f;
-        if (state.isTerminal()) {
-            whiteOutcome = state.resultForColor(Color::White);
-        }
-        // If game hit max length, outcome = 0 (draw)
+        // Determine game outcome. Only a real win/loss (queen surrounded)
+        // contributes to the value head; draws and games that hit
+        // MAX_GAME_LENGTH without a winner get value_weight=0 so their
+        // moves still train the policy head but don't push the value head
+        // toward a meaningless 0 label.
+        GameResult gr = state.result();
+        bool decisive = (gr == GameResult::WhiteWin || gr == GameResult::BlackWin);
+        float whiteOutcome = decisive ? state.resultForColor(Color::White) : 0.0f;
+        float weight = decisive ? 1.0f : 0.0f;
 
         // Convert pending samples to training samples with correct outcomes
         std::vector<TrainingSample> samples;
@@ -103,6 +106,7 @@ namespace Hive::Learning {
             s.policy = std::move(p.policyTensor);
             // Value from perspective of the player who was to move
             s.value = (p.player == Color::White) ? whiteOutcome : -whiteOutcome;
+            s.value_weight = weight;
             samples.push_back(std::move(s));
         }
 

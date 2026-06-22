@@ -9,6 +9,30 @@
 
 namespace Hive::Learning {
 
+    namespace {
+        // Weighted mean squared error for the value head.
+        //
+        // Standard MSE averages the per-sample squared errors uniformly. We
+        // instead want to ignore samples whose value label is meaningless
+        // (no-result SGF games, max-length self-play cutoffs, draws): they
+        // arrive in the batch with weight=0 so the policy head still trains
+        // from them while their value contribution is dropped.
+        //
+        // Implementation: sum(weight * (pred - target)^2) / max(sum(weight), eps).
+        // The clamp on the denominator keeps the loss finite (and the gradient
+        // zero) on the degenerate case where every sample in the batch is
+        // masked.
+        torch::Tensor weightedValueLoss(const torch::Tensor& pred,
+                                        const torch::Tensor& target,
+                                        const torch::Tensor& weight) {
+            auto diff = pred - target;
+            auto sq = diff * diff;
+            auto weighted = sq * weight;
+            auto denom = weight.sum().clamp_min(1e-6f);
+            return weighted.sum() / denom;
+        }
+    }
+
     Trainer::Trainer(HiveNet model, const std::string& checkpointDir)
         : model_(std::move(model))
         , checkpointDir_(checkpointDir)
@@ -64,6 +88,7 @@ namespace Hive::Learning {
         auto scalars = batch.scalars.to(device);
         auto targetPolicies = batch.policies.to(device);
         auto targetValues = batch.values.to(device);
+        auto valueWeights = batch.value_weights.to(device);
 
         // Forward pass
         auto [logits, values] = model_->forward(planes, scalars);
@@ -72,8 +97,8 @@ namespace Hive::Learning {
         auto logSoftmax = torch::log_softmax(logits, /*dim=*/1);
         auto policyLoss = -(targetPolicies * logSoftmax).sum(1).mean();
 
-        // Value loss: MSE with game outcome
-        auto valueLoss = torch::mse_loss(values, targetValues);
+        // Value loss: MSE masked by per-sample weight (see weightedValueLoss).
+        auto valueLoss = weightedValueLoss(values, targetValues, valueWeights);
 
         // Total loss
         auto totalLoss = policyLoss + valueLoss;
@@ -209,12 +234,13 @@ namespace Hive::Learning {
                 auto scalars = batch.scalars.to(device);
                 auto targetPolicies = batch.policies.to(device);
                 auto targetValues = batch.values.to(device);
+                auto valueWeights = batch.value_weights.to(device);
 
                 auto [logits, values] = model_->forward(planes, scalars);
 
                 auto logSoftmax = torch::log_softmax(logits, /*dim=*/1);
                 auto policyLoss = -(targetPolicies * logSoftmax).sum(1).mean();
-                auto valueLoss = torch::mse_loss(values, targetValues);
+                auto valueLoss = weightedValueLoss(values, targetValues, valueWeights);
                 auto totalLoss = policyLoss + valueLoss;
 
                 pretrainOptimizer.zero_grad();
@@ -248,9 +274,12 @@ namespace Hive::Learning {
     }
 
     void Trainer::pretrainFromDisk(const std::string& batchDir, int epochs, int startEpoch) {
-        // Each batch is a 4-tuple of files: _planes.pt, _scalars.pt,
-        // _policies.pt, _values.pt. We anchor discovery on _planes.pt
-        // and require the other three to exist before keeping the prefix.
+        // Each batch is a quintuple: _planes.pt, _scalars.pt, _policies.pt,
+        // _values.pt and (since the masked-value-loss change) _weights.pt.
+        // We anchor discovery on _planes.pt and require the other four to
+        // exist before keeping the prefix; _weights.pt is treated as optional
+        // for backward compatibility with batches generated before the mask
+        // was introduced (we default the weight to 1.0 in that case below).
         std::vector<std::string> batchPrefixes;
         for (const auto& entry : std::filesystem::directory_iterator(batchDir)) {
             auto fname = entry.path().filename().string();
@@ -318,11 +347,20 @@ namespace Hive::Learning {
 
             for (const auto& prefix : batchPrefixes) {
                 try {
-                    torch::Tensor planes, scalars, policies, values;
+                    torch::Tensor planes, scalars, policies, values, valueWeights;
                     torch::load(planes, prefix + "_planes.pt");
                     torch::load(scalars, prefix + "_scalars.pt");
                     torch::load(policies, prefix + "_policies.pt");
                     torch::load(values, prefix + "_values.pt");
+                    // _weights.pt is optional: batches produced before the
+                    // masked-value-loss change don't include it, and we
+                    // treat every sample as fully trusted (weight=1.0) in
+                    // that case.
+                    if (std::filesystem::exists(prefix + "_weights.pt")) {
+                        torch::load(valueWeights, prefix + "_weights.pt");
+                    } else {
+                        valueWeights = torch::ones_like(values);
+                    }
 
                     int n = static_cast<int>(planes.size(0));
                     auto perm = torch::randperm(n, torch::kLong);
@@ -333,12 +371,13 @@ namespace Hive::Learning {
                         auto batchScalars = scalars.index_select(0, idx).to(device);
                         auto batchPolicies = policies.index_select(0, idx).to(device);
                         auto batchValues = values.index_select(0, idx).to(device);
+                        auto batchValueWeights = valueWeights.index_select(0, idx).to(device);
 
                         auto [logits, vals] = model_->forward(batchPlanes, batchScalars);
 
                         auto logSoftmax = torch::log_softmax(logits, 1);
                         auto policyLoss = -(batchPolicies * logSoftmax).sum(1).mean();
-                        auto valueLoss = torch::mse_loss(vals, batchValues);
+                        auto valueLoss = weightedValueLoss(vals, batchValues, batchValueWeights);
                         auto totalLoss = policyLoss + valueLoss;
 
                         pretrainOptimizer.zero_grad();

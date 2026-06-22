@@ -41,17 +41,19 @@ namespace Hive::Learning {
         indices.resize(n);
 
         // Stack into tensors
-        std::vector<torch::Tensor> planes, scalars, policies, values;
+        std::vector<torch::Tensor> planes, scalars, policies, values, value_weights;
         planes.reserve(n);
         scalars.reserve(n);
         policies.reserve(n);
         values.reserve(n);
+        value_weights.reserve(n);
 
         for (int idx : indices) {
             planes.push_back(buffer_[idx].planes);
             scalars.push_back(buffer_[idx].scalars);
             policies.push_back(buffer_[idx].policy);
             values.push_back(torch::tensor({buffer_[idx].value}));
+            value_weights.push_back(torch::tensor({buffer_[idx].value_weight}));
         }
 
         TrainingBatch batch;
@@ -59,6 +61,7 @@ namespace Hive::Learning {
         batch.scalars = torch::stack(scalars);
         batch.policies = torch::stack(policies);
         batch.values = torch::stack(values);
+        batch.value_weights = torch::stack(value_weights);
 
         return batch;
     }

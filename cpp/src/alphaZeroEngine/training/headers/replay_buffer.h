@@ -14,17 +14,26 @@
 namespace Hive::Learning {
 
     struct TrainingSample {
-        torch::Tensor planes;   // [NUM_CHANNELS, GRID_SIZE, GRID_SIZE]
-        torch::Tensor scalars;  // [NUM_SCALAR_FEATURES]
-        torch::Tensor policy;   // [ACTION_SPACE] - MCTS visit distribution
-        float value;            // Game outcome from this position (+1/-1/0)
+        torch::Tensor planes;     // [NUM_CHANNELS, GRID_SIZE, GRID_SIZE]
+        torch::Tensor scalars;    // [NUM_SCALAR_FEATURES]
+        torch::Tensor policy;     // [ACTION_SPACE] - MCTS visit distribution
+        float value = 0.0f;       // Game outcome from this position (+1/-1/0)
+        float value_weight = 1.0f;// 1.0 if the outcome above is a real win/loss
+                                  // signal we want the value head to fit; 0.0
+                                  // when it isn't (aborted/no-result SGF
+                                  // games, max-length self-play cutoffs,
+                                  // draws). Used as a per-sample mask in the
+                                  // value MSE loss. Defaults to 1.0 so older
+                                  // call sites that don't set it explicitly
+                                  // keep their previous behaviour.
     };
 
     struct TrainingBatch {
-        torch::Tensor planes;   // [B, NUM_CHANNELS, GRID_SIZE, GRID_SIZE]
-        torch::Tensor scalars;  // [B, NUM_SCALAR_FEATURES]
-        torch::Tensor policies; // [B, ACTION_SPACE]
-        torch::Tensor values;   // [B, 1]
+        torch::Tensor planes;        // [B, NUM_CHANNELS, GRID_SIZE, GRID_SIZE]
+        torch::Tensor scalars;       // [B, NUM_SCALAR_FEATURES]
+        torch::Tensor policies;      // [B, ACTION_SPACE]
+        torch::Tensor values;        // [B, 1]
+        torch::Tensor value_weights; // [B, 1] - per-sample mask for value loss
     };
 
     class ReplayBuffer {
