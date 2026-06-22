@@ -84,5 +84,11 @@ namespace Hive::Learning {
     // --- Pre-training ---
     constexpr int PRETRAIN_EPOCHS = 30;
     constexpr float PRETRAIN_LR = 0.001f;
+    // Disk-budget cap on SGF samples. With the current dense tensor layout
+    // each sample is ~127 KB (planes [19,26,26] float32 + dense one-hot
+    // policy [18929]), so 500k samples × 127 KB ≈ 60 GB on disk. The AWS
+    // training instance ships with a 100 GB EBS volume; this cap leaves
+    // headroom for the build artefacts and checkpoints.
+    constexpr int MAX_PRETRAIN_SAMPLES = 500000;
 
 } // namespace Hive::Learning

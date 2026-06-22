@@ -573,6 +573,7 @@ namespace Hive::Learning {
                       << " files, starting at batch " << batchIdx << "\n";
         }
 
+        bool reachedSampleCap = false;
         for (const auto& entry : std::filesystem::recursive_directory_iterator(dirPath)) {
             if (entry.path().extension() == ".sgf") {
                 ++totalGames;
@@ -581,6 +582,13 @@ namespace Hive::Learning {
                 if (skipped < skipFiles) {
                     ++skipped;
                     continue;
+                }
+
+                // Stop once we've collected enough samples to keep the on-disk
+                // footprint manageable — see MAX_PRETRAIN_SAMPLES in config.h.
+                if (totalSamples >= MAX_PRETRAIN_SAMPLES) {
+                    reachedSampleCap = true;
+                    break;
                 }
 
                 auto gameInfo = parseFile(entry.path().string());
@@ -635,6 +643,11 @@ namespace Hive::Learning {
         // Flush remaining samples
         if (!pending.empty()) {
             flushBatch(pending, outputDir, batchIdx++);
+        }
+
+        if (reachedSampleCap) {
+            std::cout << "[SGF] Reached MAX_PRETRAIN_SAMPLES (" << MAX_PRETRAIN_SAMPLES
+                      << "). Stopping early.\n";
         }
 
         int discarded = totalGames - validGames;
